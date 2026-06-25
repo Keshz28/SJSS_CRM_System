@@ -14,11 +14,33 @@ model User {
   name         String
   passwordHash String
   role         Role        @default(USER)
+  isActive     Boolean     @default(true)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   quotations   Quotation[]
+  siteVisits   SiteVisit[]
+
+  receivedNotifications Notification[] @relation("ReceivedNotifications")
+  sentNotifications     Notification[] @relation("SentNotifications")
 
   @@map("users")
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  recipientId String
+  recipient   User     @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  senderId    String?
+  sender      User?    @relation("SentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
+  title       String
+  body        String
+  isBroadcast Boolean  @default(false)
+  read        Boolean  @default(false)
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([recipientId, read])
+  @@map("notifications")
 }
 
 model Company {
@@ -38,6 +60,7 @@ model Company {
   updatedAt      DateTime            @updatedAt
   quotations     Quotation[]
   sequences      QuotationSequence[]
+  siteVisits     SiteVisit[]
 
   @@map("companies")
 }
@@ -55,6 +78,7 @@ model Customer {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   quotations    Quotation[]
+  siteVisits    SiteVisit[]
 
   @@map("customers")
 }
@@ -80,6 +104,7 @@ model Quotation {
   createdBy       User            @relation(fields: [createdById], references: [id])
   items           QuotationItem[]
   attachments     Attachment[]
+  siteVisit       SiteVisit?
 
   @@map("quotations")
 }
@@ -98,16 +123,41 @@ model QuotationItem {
 }
 
 model Attachment {
-  id          String    @id @default(cuid())
-  quotationId String
-  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  id          String     @id @default(cuid())
+  quotationId String?
+  quotation   Quotation? @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  siteVisitId String?
+  siteVisit   SiteVisit? @relation(fields: [siteVisitId], references: [id], onDelete: Cascade)
   filename    String
   filepath    String
   filesize    Int
   mimetype    String
-  uploadedAt  DateTime  @default(now())
+  uploadedAt  DateTime   @default(now())
 
   @@map("attachments")
+}
+
+model SiteVisit {
+  id           String          @id @default(cuid())
+  companyId    String
+  company      Company         @relation(fields: [companyId], references: [id])
+  customerId   String?
+  customer     Customer?       @relation(fields: [customerId], references: [id])
+  contactName  String?
+  contactPhone String?
+  location     String?
+  title        String
+  notes        String?
+  status       SiteVisitStatus @default(CAPTURED)
+  quotationId  String?         @unique
+  quotation    Quotation?      @relation(fields: [quotationId], references: [id])
+  createdById  String
+  createdBy    User            @relation(fields: [createdById], references: [id])
+  attachments  Attachment[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@map("site_visits")
 }
 
 model QuotationSequence {
@@ -131,4 +181,9 @@ enum QuotationStatus {
   SENT
   ACCEPTED
   REJECTED
+}
+
+enum SiteVisitStatus {
+  CAPTURED
+  QUOTED
 }

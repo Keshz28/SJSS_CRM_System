@@ -21,6 +21,22 @@ async function main() {
   console.log("   Password: admin123");
   console.log("   ⚠️  Change this password after first login!");
 
+  // ── Placeholder staff users (rename / change passwords in Admin → Users) ──
+  const userPasswordHash = await bcrypt.hash("user123", 12);
+  for (let i = 1; i <= 4; i++) {
+    const user = await prisma.user.upsert({
+      where: { email: `user${i}@sjss.com` },
+      update: {},
+      create: {
+        email: `user${i}@sjss.com`,
+        name: `Staff User ${i}`,
+        passwordHash: userPasswordHash,
+        role: "USER",
+      },
+    });
+    console.log(`✅ Staff user ready: ${user.email} (password: user123)`);
+  }
+
   // ── Companies ──────────────────────────────────────────────────────────
   const sunrise = await prisma.company.upsert({
     where: { prefix: "SJSS" },

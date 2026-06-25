@@ -1,8 +1,8 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { Bell } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
+import { NotificationBell } from "./NotificationBell";
 
 interface HeaderProps {
   title: string;
@@ -29,9 +29,7 @@ export function Header({ title, subtitle }: HeaderProps) {
 
       <div className="flex items-center gap-3">
         <ThemeToggle />
-        <button className="w-9 h-9 rounded-lg bg-dx-surface border border-dx-line flex items-center justify-center text-dx-ink-muted hover:text-dx-ink hover:border-dx-accent/40 transition-colors">
-          <Bell className="w-4 h-4" />
-        </button>
+        <NotificationBell />
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-dx-accent to-dx-accent-2 flex items-center justify-center">
             <span className="text-white text-xs font-semibold">{initials}</span>

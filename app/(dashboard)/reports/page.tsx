@@ -36,27 +36,12 @@ export default async function ReportsPage() {
     count: r._count,
   }));
 
-  // Build last 12 months data
-  const monthlyMap: Record<string, { revenue: number; quotes: number }> = {};
-  const now = new Date();
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = d.toLocaleDateString("en-MY", { month: "short", year: "2-digit" });
-    monthlyMap[key] = { revenue: 0, quotes: 0 };
-  }
-
-  allQuotations.forEach((q) => {
-    const d = new Date(q.createdAt);
-    const key = d.toLocaleDateString("en-MY", { month: "short", year: "2-digit" });
-    if (monthlyMap[key]) {
-      monthlyMap[key].quotes += 1;
-      if (q.status === "ACCEPTED") {
-        monthlyMap[key].revenue += Number(q.totalAmount);
-      }
-    }
-  });
-
-  const monthlyData = Object.entries(monthlyMap).map(([month, data]) => ({ month, ...data }));
+  // Raw time series — the client buckets this by the selected period (weekly/monthly/yearly)
+  const series = allQuotations.map((q) => ({
+    createdAt: q.createdAt.toISOString(),
+    totalAmount: Number(q.totalAmount),
+    status: q.status,
+  }));
 
   const accepted = statusCounts.find((s) => s.status === "ACCEPTED");
   const draft = statusCounts.find((s) => s.status === "DRAFT");
@@ -69,7 +54,7 @@ export default async function ReportsPage() {
       <Header title="Reports & Analytics" subtitle="Business performance overview" />
       <main className="flex-1 p-6">
         <ReportsClient
-          monthlyData={monthlyData}
+          series={series}
           totalRevenue={Number(accepted?._sum?.totalAmount ?? 0)}
           totalQuotes={totalQuotes}
           acceptedCount={accepted?._count ?? 0}

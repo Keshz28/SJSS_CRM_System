@@ -14,9 +14,22 @@ const ALLOWED_TYPES = [
   "image/jpeg",
   "image/png",
   "image/gif",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  // Video (site walkthroughs)
+  "video/mp4",
+  "video/quicktime", // iPhone .mov
+  "video/webm",
+  "video/3gpp",
+  "video/x-matroska",
 ];
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+// Generous ceiling so phone videos fit. This is a safety valve against a
+// runaway upload, not a product limit — raise it freely. NOTE: large videos
+// should move to direct Supabase Storage uploads (Phase 5); the current route
+// buffers the whole file in memory, which is fine locally but not serverless.
+const MAX_SIZE = 250 * 1024 * 1024; // 250 MB
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -24,10 +37,14 @@ export async function POST(req: NextRequest) {
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
-  const quotationId = formData.get("quotationId") as string | null;
+  const quotationId = (formData.get("quotationId") as string | null) || null;
+  const siteVisitId = (formData.get("siteVisitId") as string | null) || null;
 
-  if (!file || !quotationId) {
-    return NextResponse.json({ error: "File and quotationId are required" }, { status: 400 });
+  if (!file || (!quotationId && !siteVisitId)) {
+    return NextResponse.json(
+      { error: "File and a quotationId or siteVisitId are required" },
+      { status: 400 }
+    );
   }
 
   if (!ALLOWED_TYPES.includes(file.type)) {
@@ -35,13 +52,15 @@ export async function POST(req: NextRequest) {
   }
 
   if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: "File too large (max 10 MB)" }, { status: 400 });
+    return NextResponse.json({ error: "File too large (max 15 MB)" }, { status: 400 });
   }
 
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads", quotationId);
+  // Folder is named by whichever owner the attachment belongs to.
+  const ownerFolder = quotationId ?? siteVisitId!;
+  const uploadDir = path.join(process.cwd(), "public", "uploads", ownerFolder);
   await mkdir(uploadDir, { recursive: true });
 
   const ext = path.extname(file.name);
@@ -50,11 +69,12 @@ export async function POST(req: NextRequest) {
 
   await writeFile(filePath, buffer);
 
-  const relativePath = `uploads/${quotationId}/${safeName}`;
+  const relativePath = `uploads/${ownerFolder}/${safeName}`;
 
   const attachment = await prisma.attachment.create({
     data: {
       quotationId,
+      siteVisitId,
       filename: file.name,
       filepath: relativePath,
       filesize: file.size,
