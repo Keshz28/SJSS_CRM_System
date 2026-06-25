@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --radius: 8px;
+
+  /* Dashdark X theme tokens — DARK is the default */
+  --dx-bg: #081028;
+  --dx-surface: #0B1739;
+  --dx-surface-2: #0A1330;
+  --dx-surface-hover: #0E1E45;
+  --dx-line: #343B4F;
+  --dx-ink: #FFFFFF;
+  --dx-ink-muted: #AEB9E1;
+  --dx-ink-faint: #7E89AC;
+  --dx-accent: #CB3CFF;
+  --dx-accent-2: #00C2FF;
+  --dx-success: #14CA74;
+  --dx-danger: #FF5A65;
+  --dx-warning: #FFB016;
+}
+
+/* Light theme overrides — applied when <html class="light"> */
+html.light {
+  --dx-bg: #F0F1F5;
+  --dx-surface: #FFFFFF;
+  --dx-surface-2: #FFFFFF;
+  --dx-surface-hover: #F4F6FB;
+  --dx-line: #E6E8F0;
+  --dx-ink: #1F2544;
+  --dx-ink-muted: #5A6080;
+  --dx-ink-faint: #8B8BAE;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--dx-bg);
+  color: var(--dx-ink);
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white border border-gray-200 text-text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors;
+  }
+
+  .btn-danger {
+    @apply bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors;
+  }
+
+  .input {
+    @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-text-primary mb-1;
+  }
+
+  .badge-draft {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600;
+  }
+
+  .badge-sent {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700;
+  }
+
+  .badge-accepted {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700;
+  }
+
+  .badge-rejected {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700;
+  }
+
+  /* ---- Dashdark X component primitives (theme-aware) ---- */
+  .dx-card {
+    @apply bg-dx-surface border border-dx-line rounded-2xl;
+  }
+
+  .dx-input {
+    @apply w-full bg-dx-surface border border-dx-line rounded-xl pl-10 pr-3 py-2.5 text-sm text-dx-ink placeholder-dx-ink-faint focus:outline-none focus:border-dx-accent transition-colors;
+    /* opacity modifier on CSS var colors can't be used in @apply — set ring manually */
+  }
+  .dx-input:focus {
+    box-shadow: 0 0 0 3px rgba(203, 60, 255, 0.2);
+  }
+
+  .dx-btn-gradient {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-dx-accent to-dx-accent-2 px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95 transition-opacity disabled:opacity-50;
+    box-shadow: 0 4px 20px rgba(203, 60, 255, 0.25);
+  }
+
+  .dx-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-dx-line bg-dx-surface px-3 py-2.5 text-sm font-medium text-dx-ink-muted hover:text-dx-ink transition-colors;
+  }
+}

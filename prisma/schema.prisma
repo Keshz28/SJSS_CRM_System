@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  name         String
+  passwordHash String
+  role         Role        @default(USER)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  quotations   Quotation[]
+
+  @@map("users")
+}
+
+model Company {
+  id             String              @id @default(cuid())
+  name           String
+  prefix         String              @unique
+  legalName      String?
+  tagline        String?
+  registrationNo String?
+  address        String?
+  city           String?
+  phone          String?
+  email          String?
+  website        String?
+  logoUrl        String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  quotations     Quotation[]
+  sequences      QuotationSequence[]
+
+  @@map("companies")
+}
+
+model Customer {
+  id            String      @id @default(cuid())
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String?
+  address       String?
+  city          String?
+  notes         String?
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  quotations    Quotation[]
+
+  @@map("customers")
+}
+
+model Quotation {
+  id              String          @id @default(cuid())
+  quotationNumber String          @unique
+  customerId      String
+  customer        Customer        @relation(fields: [customerId], references: [id])
+  companyId       String?
+  company         Company?        @relation(fields: [companyId], references: [id])
+  status          QuotationStatus @default(DRAFT)
+  subject         String?
+  notes           String?
+  terms           String?
+  totalAmount     Decimal         @default(0) @db.Decimal(12, 2)
+  validUntil      DateTime?
+  invoiceNumber   String?         @unique
+  invoicedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  createdById     String
+  createdBy       User            @relation(fields: [createdById], references: [id])
+  items           QuotationItem[]
+  attachments     Attachment[]
+
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String    @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Decimal   @db.Decimal(10, 2)
+  unitPrice   Decimal   @db.Decimal(12, 2)
+  total       Decimal   @db.Decimal(12, 2)
+  order       Int       @default(0)
+
+  @@map("quotation_items")
+}
+
+model Attachment {
+  id          String    @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  filename    String
+  filepath    String
+  filesize    Int
+  mimetype    String
+  uploadedAt  DateTime  @default(now())
+
+  @@map("attachments")
+}
+
+model QuotationSequence {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  year      Int
+  value     Int     @default(0)
+
+  @@unique([companyId, year])
+  @@map("quotation_sequences")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+}

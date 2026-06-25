@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"c:\\\\Users\\\\suras\\\\Documents\\\\SJSS_CRM_System\")"
+    ]
+  }
+}

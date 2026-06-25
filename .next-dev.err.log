@@ -1,0 +1,12 @@
+Warning: Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., quotationNumber: "SJ1798", customerId: ..., status: ..., subject: ..., notes: ..., terms: ..., totalAmount: Decimal, validUntil: ..., createdAt: ..., updatedAt: ..., createdById: ..., customer: ..., _count: ...}
+                                                                                                                        ^^^^^^^
+Warning: Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., quotationNumber: ..., customerId: ..., status: ..., subject: ..., notes: ..., terms: ..., totalAmount: Decimal, validUntil: ..., createdAt: ..., updatedAt: ..., createdById: ..., customer: ..., _count: ...}
+                                                                                                                   ^^^^^^^
+Warning: Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., quotationNumber: "SJ1798", customerId: ..., status: ..., subject: ..., notes: ..., terms: ..., totalAmount: Decimal, validUntil: ..., createdAt: ..., updatedAt: ..., createdById: ..., customer: ..., _count: ...}
+                                                                                                                        ^^^^^^^
+Warning: Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., quotationNumber: ..., customerId: ..., status: ..., subject: ..., notes: ..., terms: ..., totalAmount: Decimal, validUntil: ..., createdAt: ..., updatedAt: ..., createdById: ..., customer: ..., _count: ...}
+                                                                                                                   ^^^^^^^

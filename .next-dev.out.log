@@ -1,0 +1,50 @@
+
+> sjss-crm@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.15
+  - Local:        http://localhost:3000
+  - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 3.6s
+ ○ Compiling / ...
+ ✓ Compiled / in 3.7s (691 modules)
+ GET / 307 in 4168ms
+ ✓ Compiled in 479ms (233 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 3s (775 modules)
+ GET /login 200 in 3231ms
+ GET / 307 in 288ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 2.9s (874 modules)
+ GET /dashboard 200 in 5152ms
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 1156ms (570 modules)
+ GET /api/auth/session 200 in 1942ms
+ GET /api/auth/session 200 in 53ms
+ GET /api/auth/session 200 in 97ms
+ ○ Compiling /quotations ...
+ ✓ Compiled /quotations in 1502ms (901 modules)
+ ○ Compiling /quotations/new ...
+ ✓ Compiled /quotations/new in 2.7s (905 modules)
+ ○ Compiling /quotations/import ...
+ ✓ Compiled /quotations/import in 3.6s (928 modules)
+ GET /api/auth/session 200 in 337ms
+ ○ Compiling /api/quotations/extract ...
+ ✓ Compiled /api/quotations/extract in 5.7s (730 modules)
+ POST /api/quotations/extract 503 in 6374ms
+ ○ Compiling /quotations/[id] ...
+ ✓ Compiled /quotations/[id] in 4.5s (943 modules)
+ ○ Compiling /api/quotations/[id] ...
+ ✓ Compiled /api/quotations/[id] in 1080ms (640 modules)
+ PUT /api/quotations/cmpxhetjz00023yyby4fxqgrw 200 in 1866ms
+ GET /quotations/cmpxhetjz00023yyby4fxqgrw?_rsc=qzkkt 200 in 86ms
+ ○ Compiling /customers ...
+ ✓ Compiled /customers in 2.5s (990 modules)
+ GET /dashboard?_rsc=oichm 200 in 122ms
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 657ms (604 modules)
+ GET /api/auth/session 200 in 1335ms
+ GET /api/auth/session 200 in 109ms
+ GET /api/auth/session 200 in 114ms
