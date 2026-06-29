@@ -61,8 +61,7 @@ export async function GET(
     createdBy: quotation.createdBy,
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const element = React.createElement(QuotationPDF, { data }) as any;
+  const element = React.createElement(QuotationPDF, { data }) as React.ReactElement;
   const buffer = await renderToBuffer(element);
   const uint8 = new Uint8Array(buffer);
 

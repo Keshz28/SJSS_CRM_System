@@ -110,8 +110,7 @@ export async function GET(req: NextRequest) {
     topCustomers,
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const element = React.createElement(ReportsPDF, { data }) as any;
+  const element = React.createElement(ReportsPDF, { data }) as React.ReactElement;
   const buffer = await renderToBuffer(element);
   const uint8 = new Uint8Array(buffer);
 
