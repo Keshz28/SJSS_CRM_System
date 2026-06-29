@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getCompanyScope, scopeWhere } from "@/lib/company-scope";
 import { renderToBuffer } from "@react-pdf/renderer";
 import React from "react";
 import { ReportsPDF } from "@/lib/reports-pdf-document";
@@ -23,25 +24,34 @@ export async function GET(req: NextRequest) {
   const period: ReportPeriod =
     periodParam && REPORT_PERIODS.includes(periodParam) ? periodParam : "monthly";
 
+  // Honour the global company scope so the exported PDF matches what's on screen.
+  const { companyId } = await getCompanyScope();
+  const scope = scopeWhere(companyId);
+
   const [statusCounts, allQuotations, customerRevenue, company] = await Promise.all([
     prisma.quotation.groupBy({
       by: ["status"],
+      where: scope,
       _count: true,
       _sum: { totalAmount: true },
     }),
     prisma.quotation.findMany({
+      where: scope,
       select: { createdAt: true, totalAmount: true, status: true },
       orderBy: { createdAt: "asc" },
     }),
     prisma.quotation.groupBy({
       by: ["customerId"],
-      where: { status: "ACCEPTED" },
+      where: { status: "ACCEPTED", ...scope },
       _sum: { totalAmount: true },
       _count: true,
       orderBy: { _sum: { totalAmount: "desc" } },
       take: 8,
     }),
-    prisma.company.findFirst({ orderBy: { createdAt: "asc" } }),
+    // Brand the report with the selected company, or the first one for "All".
+    companyId
+      ? prisma.company.findUnique({ where: { id: companyId } })
+      : prisma.company.findFirst({ orderBy: { createdAt: "asc" } }),
   ]);
 
   const customerIds = customerRevenue.map((r) => r.customerId);

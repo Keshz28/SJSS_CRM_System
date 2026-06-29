@@ -15,7 +15,7 @@ export default function Loading() {
       </div>
 
       {/* Content skeleton */}
-      <main className="flex-1 p-6 space-y-5">
+      <main className="flex-1 p-4 sm:p-6 space-y-5">
         {/* Stat cards row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (

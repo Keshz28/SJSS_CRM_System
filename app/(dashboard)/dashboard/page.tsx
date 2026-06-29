@@ -1,25 +1,21 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getCompanies } from "@/lib/companies";
+import { getCompanyScope, customerScopeWhere } from "@/lib/company-scope";
 import { Header } from "@/components/layout/Header";
 import { formatCurrency, formatDate, dxStatusColor, statusLabel } from "@/lib/utils";
 import { Users, FileText, TrendingUp, Clock } from "lucide-react";
 import Link from "next/link";
 
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: { company?: string };
-}) {
+export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
-  const company = searchParams.company ?? "";
+  const { companyId: company } = await getCompanyScope();
   const quotationWhere = company ? { companyId: company } : {};
+  const customerWhere = { isActive: true, ...customerScopeWhere(company) };
 
-  const [companies, totalCustomers, totalQuotations, recentQuotations, statusCounts] =
+  const [totalCustomers, totalQuotations, recentQuotations, statusCounts] =
     await Promise.all([
-      getCompanies(),
-      prisma.customer.count({ where: { isActive: true } }),
+      prisma.customer.count({ where: customerWhere }),
       prisma.quotation.count({ where: quotationWhere }),
       prisma.quotation.findMany({
         where: quotationWhere,
@@ -38,9 +34,8 @@ export default async function DashboardPage({
       }),
     ]);
 
-  const companyHref = (id: string) => (id ? `/dashboard?company=${id}` : "/dashboard");
-  const quotationsHref = (params: string) =>
-    company ? `/quotations?company=${company}&${params}` : `/quotations?${params}`;
+  // Company scope is global (cookie-based), so links no longer carry a company param.
+  const quotationsHref = (params: string) => `/quotations?${params}`;
 
   const accepted = statusCounts.find((s) => s.status === "ACCEPTED");
   const draft = statusCounts.find((s) => s.status === "DRAFT");
@@ -63,7 +58,7 @@ export default async function DashboardPage({
       value: totalQuotations,
       icon: FileText,
       tint: "from-[#0EA5E9] to-[#14B8A6]",
-      href: company ? `/quotations?company=${company}` : "/quotations",
+      href: "/quotations",
     },
     {
       title: "Accepted Value",
@@ -107,36 +102,7 @@ export default async function DashboardPage({
         subtitle="Here's what's happening with your business today."
       />
 
-      <main className="flex-1 p-6 space-y-6">
-        {/* Company filter */}
-        {companies.length > 1 && (
-          <div className="flex items-center gap-1 bg-dx-surface border border-dx-line rounded-xl p-1 w-fit">
-            <Link
-              href={companyHref("")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                !company
-                  ? "bg-gradient-to-r from-dx-accent to-dx-accent-2 text-white"
-                  : "text-dx-ink-muted hover:text-dx-ink hover:bg-dx-surface-hover"
-              }`}
-            >
-              All companies
-            </Link>
-            {companies.map((co) => (
-              <Link
-                key={co.id}
-                href={companyHref(co.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  company === co.id
-                    ? "bg-gradient-to-r from-dx-accent to-dx-accent-2 text-white"
-                    : "text-dx-ink-muted hover:text-dx-ink hover:bg-dx-surface-hover"
-                }`}
-              >
-                {co.name}
-              </Link>
-            ))}
-          </div>
-        )}
-
+      <main className="flex-1 p-4 sm:p-6 space-y-6">
         {/* Stats grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => (

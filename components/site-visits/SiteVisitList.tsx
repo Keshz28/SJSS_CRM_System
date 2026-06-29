@@ -19,14 +19,12 @@ interface Visit {
   _count: { attachments: number };
 }
 
-interface Company { id: string; name: string; prefix: string }
-
 interface Props {
   visits: Visit[];
   total: number;
   search: string;
-  company: string;
-  companies: Company[];
+  /** Whether to show the company prefix on each card (combined view only). */
+  showCompany: boolean;
 }
 
 function statusBadge(status: string) {
@@ -35,16 +33,14 @@ function statusBadge(status: string) {
     : "bg-[#00C2FF]/15 text-[#00C2FF]";
 }
 
-export function SiteVisitList({ visits, total, search, company, companies }: Props) {
+export function SiteVisitList({ visits, total, search, showCompany }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState(search);
 
-  function applyFilters(next: { search?: string; company?: string }) {
+  function applyFilters(next: { search?: string }) {
     const params = new URLSearchParams();
     const s = next.search ?? query;
-    const c = next.company ?? company;
     if (s) params.set("search", s);
-    if (c) params.set("company", c);
     router.push(`/site-visits${params.toString() ? `?${params}` : ""}`);
   }
 
@@ -64,16 +60,6 @@ export function SiteVisitList({ visits, total, search, company, companies }: Pro
             className="w-full bg-dx-surface border border-dx-line rounded-xl pl-9 pr-3 py-2.5 text-sm text-dx-ink placeholder-dx-ink-faint focus:outline-none focus:border-dx-accent"
           />
         </form>
-        <select
-          value={company}
-          onChange={(e) => applyFilters({ company: e.target.value })}
-          className="bg-dx-surface border border-dx-line rounded-xl px-3 py-2.5 text-sm text-dx-ink focus:outline-none focus:border-dx-accent"
-        >
-          <option value="">All companies</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
         <Link href="/site-visits/new" className="dx-btn-gradient whitespace-nowrap">
           <Plus className="w-4 h-4" />
           New Visit
@@ -151,7 +137,7 @@ export function SiteVisitList({ visits, total, search, company, companies }: Pro
                     </p>
                   )}
                   <div className="flex items-center justify-between mt-3 text-xs text-dx-ink-faint">
-                    <span>{visit.company?.prefix ?? ""}</span>
+                    <span>{showCompany ? visit.company?.prefix ?? "" : ""}</span>
                     <span>{formatDate(visit.createdAt)}</span>
                   </div>
                 </div>

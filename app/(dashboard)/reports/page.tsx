@@ -1,21 +1,27 @@
 import { prisma } from "@/lib/prisma";
+import { getCompanyScope, scopeWhere } from "@/lib/company-scope";
 import { Header } from "@/components/layout/Header";
 import { ReportsClient } from "./ReportsClient";
 
 export default async function ReportsPage() {
+  const { companyId } = await getCompanyScope();
+  const scope = scopeWhere(companyId);
+
   const [statusCounts, allQuotations, customerRevenue] = await Promise.all([
     prisma.quotation.groupBy({
       by: ["status"],
+      where: scope,
       _count: true,
       _sum: { totalAmount: true },
     }),
     prisma.quotation.findMany({
+      where: scope,
       select: { createdAt: true, totalAmount: true, status: true },
       orderBy: { createdAt: "asc" },
     }),
     prisma.quotation.groupBy({
       by: ["customerId"],
-      where: { status: "ACCEPTED" },
+      where: { status: "ACCEPTED", ...scope },
       _sum: { totalAmount: true },
       _count: true,
       orderBy: { _sum: { totalAmount: "desc" } },
@@ -52,7 +58,7 @@ export default async function ReportsPage() {
   return (
     <div className="flex flex-col flex-1">
       <Header title="Reports & Analytics" subtitle="Business performance overview" />
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-4 sm:p-6">
         <ReportsClient
           series={series}
           totalRevenue={Number(accepted?._sum?.totalAmount ?? 0)}

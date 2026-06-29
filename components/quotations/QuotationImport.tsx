@@ -43,7 +43,7 @@ interface Company {
   prefix: string;
 }
 
-export function QuotationImport({ companies }: { companies: Company[] }) {
+export function QuotationImport({ companies, defaultCompanyId }: { companies: Company[]; defaultCompanyId?: string }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -56,7 +56,7 @@ export function QuotationImport({ companies }: { companies: Company[] }) {
   const [error, setError] = useState("");
 
   // Form fields
-  const [companyId, setCompanyId] = useState(companies[0]?.id ?? "");
+  const [companyId, setCompanyId] = useState(defaultCompanyId ?? companies[0]?.id ?? "");
   const [quotationNumber, setQuotationNumber] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [subject, setSubject] = useState("");

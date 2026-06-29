@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -16,8 +17,10 @@ import {
   Inbox,
   UserCog,
   Send,
+  X,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
+import { useMobileNav } from "./MobileNavProvider";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -38,19 +41,50 @@ export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
+  const { open, setOpen } = useMobileNav();
+
+  // Close the mobile drawer whenever the route changes (e.g. a nav link tap).
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname, setOpen]);
 
   return (
-    <aside className="fixed inset-y-0 left-0 w-64 bg-[#0A1330] border-r border-white/5 flex flex-col z-50">
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-white/10">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-dx-accent to-dx-accent-2 flex items-center justify-center flex-shrink-0 shadow-lg shadow-dx-accent/30">
-          <span className="text-white text-sm font-bold">S</span>
+    <>
+      {/* Backdrop — mobile only, dims the page behind the open drawer. */}
+      {open && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-[45] bg-black/60 lg:hidden"
+        />
+      )}
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 w-64 bg-[#0A1330] border-r border-white/5 flex flex-col z-50 transition-transform duration-300 ease-in-out lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-3 px-6 py-5 border-b border-white/10">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-dx-accent to-dx-accent-2 flex items-center justify-center flex-shrink-0 shadow-lg shadow-dx-accent/30">
+            <span className="text-white text-sm font-bold">S</span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-white font-semibold text-sm leading-tight">SJSS CRM</p>
+            <p className="text-white/50 text-xs">Management System</p>
+          </div>
+          {/* Close button — mobile only. */}
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Close menu"
+            className="ml-auto p-1.5 rounded-lg text-white/60 hover:bg-white/10 hover:text-white lg:hidden"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-        <div>
-          <p className="text-white font-semibold text-sm leading-tight">SJSS CRM</p>
-          <p className="text-white/50 text-xs">Management System</p>
-        </div>
-      </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
@@ -128,6 +162,7 @@ export function Sidebar() {
           Sign out
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

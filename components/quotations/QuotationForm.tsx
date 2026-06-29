@@ -33,6 +33,8 @@ interface QuotationFormData {
 interface Props {
   customers: Customer[];
   companies: Company[];
+  /** Active global company scope; preselects the company on new quotations. */
+  defaultCompanyId?: string;
   defaultValues?: Partial<QuotationFormData>;
   preselectedCustomerId?: string;
 }
@@ -45,13 +47,15 @@ const DEFAULT_TERMS = `1. Prices quoted are valid for 30 days from the date of t
 const fieldCls = "w-full bg-dx-surface border border-dx-line rounded-xl px-3 py-2.5 text-sm text-dx-ink placeholder-dx-ink-faint focus:outline-none focus:border-dx-accent transition-colors";
 const labelCls = "block text-sm font-medium text-dx-ink-muted mb-1.5";
 
-export function QuotationForm({ customers, companies, defaultValues, preselectedCustomerId }: Props) {
+export function QuotationForm({ customers, companies, defaultCompanyId, defaultValues, preselectedCustomerId }: Props) {
   const router = useRouter();
   const isEdit = !!defaultValues?.id;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const [companyId, setCompanyId] = useState(defaultValues?.companyId ?? companies[0]?.id ?? "");
+  const [companyId, setCompanyId] = useState(
+    defaultValues?.companyId ?? defaultCompanyId ?? companies[0]?.id ?? ""
+  );
   const [customerId, setCustomerId] = useState(defaultValues?.customerId ?? preselectedCustomerId ?? "");
   const [subject, setSubject] = useState(defaultValues?.subject ?? "");
   const [notes, setNotes] = useState(defaultValues?.notes ?? "");

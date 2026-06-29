@@ -11,6 +11,8 @@ interface Company { id: string; name: string; prefix: string }
 interface Props {
   customers: Customer[];
   companies: Company[];
+  /** Active global company scope; preselects the company on a new visit. */
+  defaultCompanyId?: string;
 }
 
 const fieldCls =
@@ -22,11 +24,11 @@ interface Shot {
   url: string;
 }
 
-export function SiteVisitCapture({ customers, companies }: Props) {
+export function SiteVisitCapture({ customers, companies, defaultCompanyId }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [companyId, setCompanyId] = useState(companies[0]?.id ?? "");
+  const [companyId, setCompanyId] = useState(defaultCompanyId ?? companies[0]?.id ?? "");
   const [mode, setMode] = useState<"new" | "existing">("new");
   const [customerId, setCustomerId] = useState("");
   const [contactName, setContactName] = useState("");

@@ -27,7 +27,7 @@ export default async function EditQuotationPage({
   return (
     <div className="flex flex-col flex-1">
       <Header title={`Edit ${quotation.quotationNumber}`} subtitle="Update quotation details" />
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-4 sm:p-6">
         <QuotationForm
           customers={customers}
           companies={companies}

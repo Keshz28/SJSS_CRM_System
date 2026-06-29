@@ -5,7 +5,7 @@ export default function Loading() {
         <div className="h-5 w-48 bg-dx-surface rounded-lg animate-pulse" />
         <div className="h-3 w-32 bg-dx-surface rounded-lg animate-pulse mt-2" />
       </div>
-      <main className="flex-1 p-6 space-y-5">
+      <main className="flex-1 p-4 sm:p-6 space-y-5">
         {/* Stat cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (

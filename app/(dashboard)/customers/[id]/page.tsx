@@ -15,7 +15,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
   return (
     <div className="flex flex-col flex-1">
       <Header title={customer.name} subtitle="Customer details & quotation history" />
-      <main className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+      <main className="flex-1 p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
         <div className="lg:col-span-3">
           <CustomerForm
             customerId={customer.id}

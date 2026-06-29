@@ -1,16 +1,16 @@
 import { prisma } from "@/lib/prisma";
-import { getCompanies } from "@/lib/companies";
+import { getCompanyScope } from "@/lib/company-scope";
 import { Header } from "@/components/layout/Header";
 import { QuotationList } from "@/components/quotations/QuotationList";
 
 export default async function QuotationsPage({
   searchParams,
 }: {
-  searchParams: { search?: string; status?: string; company?: string; page?: string };
+  searchParams: { search?: string; status?: string; page?: string };
 }) {
   const search = searchParams.search ?? "";
   const status = searchParams.status ?? "";
-  const company = searchParams.company ?? "";
+  const { companyId: company, companies } = await getCompanyScope();
   const page = parseInt(searchParams.page ?? "1");
   const limit = 20;
   const skip = (page - 1) * limit;
@@ -26,7 +26,7 @@ export default async function QuotationsPage({
     ];
   }
 
-  const [quotations, total, companies] = await Promise.all([
+  const [quotations, total] = await Promise.all([
     prisma.quotation.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -39,22 +39,23 @@ export default async function QuotationsPage({
       },
     }),
     prisma.quotation.count({ where }),
-    getCompanies(),
   ]);
+
+  // Show the Company column only in the combined ("All companies") view.
+  const showCompanyColumn = !company && companies.length > 1;
 
   return (
     <div className="flex flex-col flex-1">
       <Header title="Quotations" subtitle={`${total} quotation${total !== 1 ? "s" : ""} total`} />
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-4 sm:p-6">
         <QuotationList
           quotations={quotations}
-          companies={companies}
           total={total}
           page={page}
           limit={limit}
           search={search}
           status={status}
-          company={company}
+          showCompanyColumn={showCompanyColumn}
         />
       </main>
     </div>

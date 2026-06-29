@@ -1,15 +1,15 @@
 import { prisma } from "@/lib/prisma";
-import { getCompanies } from "@/lib/companies";
+import { getCompanyScope } from "@/lib/company-scope";
 import { Header } from "@/components/layout/Header";
 import { SiteVisitList } from "@/components/site-visits/SiteVisitList";
 
 export default async function SiteVisitsPage({
   searchParams,
 }: {
-  searchParams: { search?: string; company?: string };
+  searchParams: { search?: string };
 }) {
   const search = searchParams.search ?? "";
-  const company = searchParams.company ?? "";
+  const { companyId: company, companies } = await getCompanyScope();
 
   const where: Record<string, unknown> = {};
   if (company) where.companyId = company;
@@ -22,7 +22,7 @@ export default async function SiteVisitsPage({
     ];
   }
 
-  const [visits, total, companies] = await Promise.all([
+  const [visits, total] = await Promise.all([
     prisma.siteVisit.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -35,19 +35,20 @@ export default async function SiteVisitsPage({
       },
     }),
     prisma.siteVisit.count({ where }),
-    getCompanies(),
   ]);
+
+  // Only worth showing the company on each card in the combined view.
+  const showCompany = !company && companies.length > 1;
 
   return (
     <div className="flex flex-col flex-1">
       <Header title="Site Visits" subtitle={`${total} visit${total !== 1 ? "s" : ""} total`} />
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-4 sm:p-6">
         <SiteVisitList
           visits={JSON.parse(JSON.stringify(visits))}
           total={total}
           search={search}
-          company={company}
-          companies={companies}
+          showCompany={showCompany}
         />
       </main>
     </div>

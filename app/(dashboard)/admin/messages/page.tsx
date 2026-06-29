@@ -19,7 +19,7 @@ export default async function AdminMessagesPage() {
   return (
     <div className="flex flex-col flex-1">
       <Header title="Send Message" subtitle="Broadcast to everyone or send a private notification" />
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-4 sm:p-6">
         <MessageComposer recipients={recipients} />
       </main>
     </div>

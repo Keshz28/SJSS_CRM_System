@@ -24,7 +24,7 @@ export default async function SiteVisitDetailPage({
   return (
     <div className="flex flex-col flex-1">
       <Header title={visit.title} subtitle={visit.location ?? "Site visit"} />
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-4 sm:p-6">
         <SiteVisitDetail visit={JSON.parse(JSON.stringify(visit))} />
       </main>
     </div>

@@ -25,7 +25,7 @@ export default async function AdminUsersPage() {
   return (
     <div className="flex flex-col flex-1">
       <Header title="Manage Users" subtitle="Add staff accounts, reset passwords, and control access" />
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-4 sm:p-6">
         <UsersManager
           initialUsers={users.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() }))}
           currentUserId={session.user.id}

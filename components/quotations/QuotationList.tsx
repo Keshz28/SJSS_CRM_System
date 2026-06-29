@@ -25,13 +25,13 @@ interface Quotation {
 
 interface Props {
   quotations: Quotation[];
-  companies: Company[];
   total: number;
   page: number;
   limit: number;
   search: string;
   status: string;
-  company: string;
+  /** Whether to render the Company column (only in the combined "All companies" view). */
+  showCompanyColumn: boolean;
 }
 
 const STATUS_TABS = [
@@ -42,7 +42,7 @@ const STATUS_TABS = [
   { value: "REJECTED", label: "Rejected" },
 ];
 
-export function QuotationList({ quotations, companies, total, page, limit, search, status, company }: Props) {
+export function QuotationList({ quotations, total, page, limit, search, status, showCompanyColumn }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [searchValue, setSearchValue] = useState(search);
@@ -61,7 +61,7 @@ export function QuotationList({ quotations, companies, total, page, limit, searc
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    navigate({ search: searchValue, status, company });
+    navigate({ search: searchValue, status });
   }
 
   async function handleDelete(id: string, num: string) {
@@ -84,19 +84,6 @@ export function QuotationList({ quotations, companies, total, page, limit, searc
             className="dx-input"
           />
         </form>
-        {companies.length > 1 && (
-          <select
-            value={company}
-            onChange={(e) => navigate({ search, status, company: e.target.value })}
-            className="dx-input w-auto pl-3"
-            title="Filter by company"
-          >
-            <option value="">All companies</option>
-            {companies.map((co) => (
-              <option key={co.id} value={co.id}>{co.name}</option>
-            ))}
-          </select>
-        )}
         <div className="flex-1" />
         <Link href="/quotations/import" className="dx-btn-ghost">
           <Upload className="w-4 h-4" />
@@ -113,7 +100,7 @@ export function QuotationList({ quotations, companies, total, page, limit, searc
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}
-            onClick={() => navigate({ search, status: tab.value, company })}
+            onClick={() => navigate({ search, status: tab.value })}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               status === tab.value
                 ? "bg-gradient-to-r from-dx-accent to-dx-accent-2 text-white"
@@ -153,7 +140,9 @@ export function QuotationList({ quotations, companies, total, page, limit, searc
                 <tr className="border-b border-dx-line">
                   <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide">Quote No.</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide">Customer</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide hidden lg:table-cell">Company</th>
+                  {showCompanyColumn && (
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide hidden lg:table-cell">Company</th>
+                  )}
                   <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide hidden md:table-cell">Subject</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide">Status</th>
                   <th className="px-5 py-3 text-right text-xs font-semibold text-dx-ink-faint uppercase tracking-wide">Amount</th>
@@ -177,15 +166,17 @@ export function QuotationList({ quotations, companies, total, page, limit, searc
                       </div>
                     </td>
                     <td className="px-5 py-3.5 font-medium text-dx-ink">{q.customer.name}</td>
-                    <td className="px-5 py-3.5 hidden lg:table-cell">
-                      {q.company ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-dx-accent/10 text-dx-accent">
-                          {q.company.name}
-                        </span>
-                      ) : (
-                        <span className="text-dx-ink-faint">—</span>
-                      )}
-                    </td>
+                    {showCompanyColumn && (
+                      <td className="px-5 py-3.5 hidden lg:table-cell">
+                        {q.company ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-dx-accent/10 text-dx-accent">
+                            {q.company.name}
+                          </span>
+                        ) : (
+                          <span className="text-dx-ink-faint">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-5 py-3.5 text-dx-ink-muted hidden md:table-cell max-w-[180px] truncate">
                       {q.subject ?? "—"}
                     </td>
@@ -232,14 +223,14 @@ export function QuotationList({ quotations, companies, total, page, limit, searc
             </p>
             <div className="flex gap-1.5">
               <button
-                onClick={() => navigate({ search, status, company, page: String(page - 1) })}
+                onClick={() => navigate({ search, status, page: String(page - 1) })}
                 disabled={page === 1}
                 className="w-8 h-8 flex items-center justify-center rounded-lg border border-dx-line text-dx-ink-muted hover:text-dx-ink hover:border-dx-accent/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
-                onClick={() => navigate({ search, status, company, page: String(page + 1) })}
+                onClick={() => navigate({ search, status, page: String(page + 1) })}
                 disabled={page === totalPages}
                 className="w-8 h-8 flex items-center justify-center rounded-lg border border-dx-line text-dx-ink-muted hover:text-dx-ink hover:border-dx-accent/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >

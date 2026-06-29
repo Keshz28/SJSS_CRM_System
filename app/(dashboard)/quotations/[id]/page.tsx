@@ -28,7 +28,7 @@ export default async function QuotationDetailPage({
         title={quotation.quotationNumber}
         subtitle={`${quotation.customer.name} — ${quotation.subject ?? "No subject"}`}
       />
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-4 sm:p-6">
         <QuotationDetail quotation={JSON.parse(JSON.stringify(quotation))} />
       </main>
     </div>

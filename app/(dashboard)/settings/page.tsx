@@ -10,7 +10,7 @@ export default async function SettingsPage() {
   return (
     <div className="flex flex-col flex-1">
       <Header title="Settings" subtitle="Manage your companies and their quotation details" />
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-4 sm:p-6">
         <CompanySettings companies={companies} />
       </main>
     </div>

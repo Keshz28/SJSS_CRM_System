@@ -5,7 +5,7 @@ export default function Loading() {
         <div className="h-5 w-44 bg-dx-surface rounded-lg animate-pulse" />
         <div className="h-3 w-36 bg-dx-surface rounded-lg animate-pulse mt-2" />
       </div>
-      <main className="flex-1 p-6 space-y-5">
+      <main className="flex-1 p-4 sm:p-6 space-y-5">
         <div className="flex justify-end">
           <div className="h-10 w-36 bg-dx-surface rounded-xl animate-pulse" />
         </div>
