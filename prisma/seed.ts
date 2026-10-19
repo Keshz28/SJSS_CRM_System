@@ -1,16 +1,25 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { passwordSchema } from "../lib/password-policy";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash("admin123", 12);
+  const demo = process.env.SEED_DEMO_DATA === "true";
+  const localHost = new URL(process.env.DATABASE_URL || "postgresql://invalid").hostname;
+  if (demo && (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1", "::1", "[::1]"].includes(localHost)))
+    throw new Error("Demo seeding is allowed only on a local development database.");
+  const email = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase() || (demo ? "admin@sjss.com" : "");
+  const password = process.env.SEED_ADMIN_PASSWORD || (demo ? "admin123" : "");
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || (!demo && !passwordSchema.safeParse(password).success))
+    throw new Error("Set SEED_ADMIN_EMAIL and a strong SEED_ADMIN_PASSWORD (15 characters, at most 72 UTF-8 bytes). Use SEED_DEMO_DATA=true only for local development.");
+  const passwordHash = await bcrypt.hash(password, 12);
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@sjss.com" },
+    where: { email },
     update: {},
     create: {
-      email: "admin@sjss.com",
+      email,
       name: "Administrator",
       passwordHash,
       role: "ADMIN",
@@ -18,12 +27,11 @@ async function main() {
   });
 
   console.log("✅ Admin user created:", admin.email);
-  console.log("   Password: admin123");
-  console.log("   ⚠️  Change this password after first login!");
+  if (demo) console.log("Local demo accounts enabled. Never deploy their known passwords.");
 
   // ── Placeholder staff users (rename / change passwords in Admin → Users) ──
   const userPasswordHash = await bcrypt.hash("user123", 12);
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; demo && i <= 4; i++) {
     const user = await prisma.user.upsert({
       where: { email: `user${i}@sjss.com` },
       update: {},
@@ -34,7 +42,7 @@ async function main() {
         role: "USER",
       },
     });
-    console.log(`✅ Staff user ready: ${user.email} (password: user123)`);
+    console.log(`✅ Staff user ready: ${user.email}`);
   }
 
   // ── Companies ──────────────────────────────────────────────────────────
@@ -62,7 +70,8 @@ async function main() {
   });
   console.log(`✅ Company ready: ${sinarJasa.name} (${sinarJasa.prefix})`);
 
-  // ── Backfill existing quotations → SJ Sunrise Services ───────────────────
+  if (!demo) return;
+  // Local sample records only. Production seeding never assigns legacy business data.
   const backfilled = await prisma.quotation.updateMany({
     where: { companyId: null },
     data: { companyId: sunrise.id },
@@ -73,12 +82,13 @@ async function main() {
     );
   }
 
-  // Sample customer (shared across both companies)
+  // Sample customer belonging to SJ Sunrise Services
   const customer = await prisma.customer.upsert({
     where: { id: "sample-customer-001" },
     update: {},
     create: {
       id: "sample-customer-001",
+      companyId: sunrise.id,
       name: "ABC Trading Sdn Bhd",
       contactPerson: "Ahmad bin Hassan",
       email: "ahmad@abctrading.com",

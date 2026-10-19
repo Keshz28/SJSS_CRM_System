@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { InboxList } from "@/components/inbox/InboxList";
+import { CommunicationNav } from "@/components/inbox/CommunicationNav";
 
 export default async function InboxPage() {
   const session = await getServerSession(authOptions);
@@ -25,7 +26,8 @@ export default async function InboxPage() {
   return (
     <div className="flex flex-col flex-1">
       <Header title="Inbox" subtitle="Messages and announcements" />
-      <main className="flex-1 p-4 sm:p-6">
+      <main className="flex-1 p-4 sm:p-6 space-y-5">
+        <CommunicationNav active="inbox" />
         <InboxList
           currentUserRole={session.user.role}
           currentUserId={session.user.id}

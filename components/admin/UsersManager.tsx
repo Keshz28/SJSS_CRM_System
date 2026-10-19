@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
+import { DEMO_EMAILS } from "@/lib/demo-accounts";
 import { useRouter } from "next/navigation";
 import {
   UserPlus,
@@ -48,6 +50,11 @@ export function UsersManager({
   currentUserId: string;
 }) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const [retiring, setRetiring] = useState(false);
+  const [retirementMessage, setRetirementMessage] = useState("");
+  const demoCount = initialUsers.filter((user) => user.isActive && DEMO_EMAILS.includes(user.email.toLowerCase())).length;
+  const canRetire = Boolean(session?.user.adminEmailVerified && !DEMO_EMAILS.includes(session.user.email.toLowerCase()));
 
   // ── Add-user form state ──
   const [name, setName] = useState("");
@@ -121,6 +128,23 @@ export function UsersManager({
 
   return (
     <div className="space-y-6 max-w-4xl">
+      {demoCount > 0 && <section className="dx-card p-5 space-y-3">
+        <h3 className="text-sm font-semibold text-dx-ink">Move to real accounts</h3>
+        <p className="text-sm text-dx-ink-muted">Set a password and activate your named administrator account below. Sign in with that account and verify its email before deactivating the {demoCount} demo accounts. Their project and customer history will be kept.</p>
+        <button type="button" className="dx-btn-ghost" disabled={retiring || !canRetire} onClick={async () => {
+          if (!confirm("Deactivate all five demo logins? Their saved records will remain.")) return;
+          setRetiring(true); setRetirementMessage("");
+          try {
+            const response = await fetch("/api/users/retire-demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: true }) });
+            const data = await response.json();
+            if (!response.ok) throw new Error(extractError(data, "Could not deactivate demo accounts."));
+            setRetirementMessage(`${data.deactivated} demo accounts deactivated.`); router.refresh();
+          } catch (error) { setRetirementMessage(error instanceof Error ? error.message : "Could not complete the changeover."); }
+          finally { setRetiring(false); }
+        }}>{retiring ? "Deactivating…" : "Deactivate demo accounts"}</button>
+        {!canRetire && <p className="text-xs text-dx-ink-faint">This becomes available after a verified sign-in with your real administrator account.</p>}
+        {retirementMessage && <p role="status" className="text-sm text-dx-ink">{retirementMessage}</p>}
+      </section>}
       {/* Add user */}
       <form onSubmit={handleAdd} className="dx-card p-5 space-y-4">
         <div className="flex items-center gap-3 border-b border-dx-line pb-4">
@@ -144,7 +168,7 @@ export function UsersManager({
           </div>
           <div>
             <label className={labelCls}>Temporary Password</label>
-            <input className={fieldCls} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" required />
+            <input type="password" autoComplete="new-password" minLength={15} maxLength={72} className={fieldCls} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Passphrase: at least 15 characters" required />
           </div>
           <div>
             <label className={labelCls}>Role</label>
@@ -180,9 +204,11 @@ export function UsersManager({
             return (
               <div
                 key={u.id}
+                role="group"
+                aria-label={`Account ${u.name} ${u.email}`}
                 className="flex flex-wrap items-center gap-3 rounded-xl border border-dx-line bg-dx-surface px-4 py-3"
               >
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-dx-accent to-dx-accent-2 flex items-center justify-center flex-shrink-0">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-dx-action to-dx-action-2 flex items-center justify-center flex-shrink-0">
                   <span className="text-white text-xs font-semibold">
                     {u.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
                   </span>
@@ -227,7 +253,7 @@ export function UsersManager({
                   </button>
                   <button
                     onClick={() => setResetUser(u)}
-                    title="Reset password"
+                    title={u.isActive ? "Reset password" : "Set password and activate"}
                     className="w-8 h-8 flex items-center justify-center rounded-lg border border-dx-line text-dx-ink-muted hover:text-dx-ink hover:border-dx-accent/40 transition-colors"
                   >
                     <KeyRound className="w-3.5 h-3.5" />
@@ -255,6 +281,7 @@ export function UsersManager({
 }
 
 function ResetPasswordModal({ user, onClose }: { user: UserRecord; onClose: () => void }) {
+  const router = useRouter();
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -264,24 +291,30 @@ function ResetPasswordModal({ user, onClose }: { user: UserRecord; onClose: () =
     e.preventDefault();
     setSaving(true);
     setError("");
-    const res = await fetch(`/api/users/${user.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      setError(extractError(await res.json().catch(() => ({})), "Could not reset the password."));
-      return;
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, ...(!user.isActive && { isActive: true }) }),
+      });
+      if (!res.ok) {
+        setError(extractError(await res.json().catch(() => ({})), "Could not reset the password."));
+        return;
+      }
+      setDone(true);
+      router.refresh();
+    } catch {
+      setError("Could not connect. Check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
-    setDone(true);
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="dx-card w-full max-w-sm p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-labelledby="reset-password-title" className="dx-card w-full max-w-sm p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-dx-ink">Reset password</h3>
+          <h3 id="reset-password-title" className="text-sm font-semibold text-dx-ink">{user.isActive ? "Reset password" : "Set password and activate"}</h3>
           <button onClick={onClose} className="text-dx-ink-faint hover:text-dx-ink">
             <X className="w-4 h-4" />
           </button>
@@ -289,7 +322,7 @@ function ResetPasswordModal({ user, onClose }: { user: UserRecord; onClose: () =
         {done ? (
           <>
             <p className="flex items-center gap-2 text-xs text-[#14CA74] bg-[#14CA74]/10 border border-[#14CA74]/30 rounded-xl px-3 py-2">
-              <CheckCircle className="w-4 h-4 flex-shrink-0" /> Password updated for {user.name}.
+              <CheckCircle className="w-4 h-4 flex-shrink-0" /> {user.isActive ? "Password updated" : "Account activated"} for {user.name}.
             </p>
             <button onClick={onClose} className="dx-btn-gradient w-full justify-center">Done</button>
           </>
@@ -299,19 +332,23 @@ function ResetPasswordModal({ user, onClose }: { user: UserRecord; onClose: () =
               Set a new password for <span className="text-dx-ink font-medium">{user.name}</span>. Share it with them securely.
             </p>
             <input
+              type="password"
               className={fieldCls}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="New password (min 6 chars)"
+              placeholder="Passphrase: at least 15 characters"
+              minLength={15}
+              maxLength={72}
+              autoComplete="new-password"
               required
             />
             {error && (
-              <p className="flex items-center gap-2 text-xs text-dx-danger bg-dx-danger/10 border border-dx-danger/30 rounded-xl px-3 py-2">
+              <p role="alert" className="flex items-center gap-2 text-xs text-dx-danger bg-dx-danger/10 border border-dx-danger/30 rounded-xl px-3 py-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
               </p>
             )}
             <button type="submit" disabled={saving} className="dx-btn-gradient w-full justify-center">
-              <KeyRound className="w-4 h-4" /> {saving ? "Saving…" : "Reset Password"}
+              <KeyRound className="w-4 h-4" /> {saving ? "Saving…" : user.isActive ? "Reset Password" : "Set password and activate"}
             </button>
           </form>
         )}

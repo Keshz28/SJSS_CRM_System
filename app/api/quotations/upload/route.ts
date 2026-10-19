@@ -1,132 +1,48 @@
+import { readForm } from "@/lib/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { generateQuotationNumber } from "@/lib/quotation-number";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { FileValidationError, removeUnreferencedFile, storeFile } from "@/lib/file-storage";
+import { createImportedQuotation, quotationImportFailure, quotationImportSchema } from "@/lib/quotation-import";
 
 const ALLOWED_TYPES = [
-  "application/pdf",
-  "application/msword",
+  "application/pdf", "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "image/jpeg",
-  "image/png",
+  "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "image/jpeg", "image/png",
 ];
-
 const MAX_SIZE = 10 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let form: FormData;
+  try { form = await readForm(req, 11 * 1024 * 1024); }
+  catch { return NextResponse.json({ error: "Choose a valid document upload." }, { status: 400 }); }
+  const parsed = quotationImportSchema.safeParse(Object.fromEntries([
+    "companyId", "companyName", "quotationNumber", "subject", "amount", "date", "status", "notes",
+  ].map((key) => [key, form.get(key) ?? undefined])));
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
 
-  const formData = await req.formData();
+  const file = form.get("file");
+  if (file !== null && (!(file instanceof File) || !ALLOWED_TYPES.includes(file.type) || !file.size || file.size > MAX_SIZE))
+    return NextResponse.json({ error: "Choose a non-empty PDF, Excel, Word or JPG/PNG file up to 10 MB." }, { status: 400 });
 
-  const file = formData.get("file") as File | null;
-  const quotationNumber = (formData.get("quotationNumber") as string | null)?.trim() || "";
-  const companyId = (formData.get("companyId") as string | null)?.trim() || "";
-  const companyName = (formData.get("companyName") as string | null)?.trim() || "";
-  const subject = (formData.get("subject") as string | null)?.trim() || "";
-  const amountRaw = (formData.get("amount") as string | null) ?? "";
-  const dateRaw = (formData.get("date") as string | null)?.trim() || "";
-  const status = (formData.get("status") as string | null)?.trim() || "SENT";
-  const notes = (formData.get("notes") as string | null)?.trim() || "";
-
-  if (!companyId) {
-    return NextResponse.json({ error: "Please select which company this quotation is for" }, { status: 400 });
-  }
-
-  const company = await prisma.company.findUnique({ where: { id: companyId } });
-  if (!company) {
-    return NextResponse.json({ error: "Selected company not found" }, { status: 400 });
-  }
-
-  if (!companyName) {
-    return NextResponse.json({ error: "Company name is required" }, { status: 400 });
-  }
-
-  const amount = parseFloat(amountRaw);
-  if (isNaN(amount) || amount < 0) {
-    return NextResponse.json({ error: "Amount must be a valid number" }, { status: 400 });
-  }
-
-  if (file && !ALLOWED_TYPES.includes(file.type)) {
-    return NextResponse.json({ error: "File type not allowed" }, { status: 400 });
-  }
-
-  if (file && file.size > MAX_SIZE) {
-    return NextResponse.json({ error: "File too large (max 10 MB)" }, { status: 400 });
-  }
-
-  // Find or create customer
-  let customer = await prisma.customer.findFirst({
-    where: { name: { equals: companyName, mode: "insensitive" } },
-  });
-  if (!customer) {
-    customer = await prisma.customer.create({ data: { name: companyName } });
-  }
-
-  // Resolve quotation number
-  let finalQuotationNumber = quotationNumber;
-  if (!finalQuotationNumber) {
-    finalQuotationNumber = await generateQuotationNumber(companyId);
-  } else {
-    const existing = await prisma.quotation.findUnique({ where: { quotationNumber: finalQuotationNumber } });
-    if (existing) {
-      return NextResponse.json({ error: `Quotation number "${finalQuotationNumber}" already exists` }, { status: 409 });
+  let stored: Awaited<ReturnType<typeof storeFile>> | undefined;
+  if (file instanceof File) {
+    try { stored = await storeFile(file); }
+    catch (error) {
+      if (error instanceof FileValidationError) return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error("Could not store imported document", error);
+      return NextResponse.json({ error: "Could not store the document. Please try again." }, { status: 503 });
     }
   }
-
-  const createdAt = dateRaw ? new Date(dateRaw) : new Date();
-
-  // Create quotation with one line item
-  const quotation = await prisma.quotation.create({
-    data: {
-      quotationNumber: finalQuotationNumber,
-      customerId: customer.id,
-      companyId,
-      subject: subject || null,
-      notes: notes || null,
-      totalAmount: amount,
-      status: status as "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED",
-      createdAt,
-      updatedAt: createdAt,
-      createdById: session.user.id,
-      items: {
-        create: [
-          {
-            description: subject || "Imported quotation",
-            quantity: 1,
-            unitPrice: amount,
-            total: amount,
-            order: 0,
-          },
-        ],
-      },
-    },
-  });
-
-  // Attach file if provided
-  if (file) {
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const uploadDir = path.join(process.cwd(), "public", "uploads", quotation.id);
-    await mkdir(uploadDir, { recursive: true });
-    const ext = path.extname(file.name);
-    const safeName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-    await writeFile(path.join(uploadDir, safeName), buffer);
-    await prisma.attachment.create({
-      data: {
-        quotationId: quotation.id,
-        filename: file.name,
-        filepath: `uploads/${quotation.id}/${safeName}`,
-        filesize: file.size,
-        mimetype: file.type,
-      },
-    });
+  try {
+    const quotation = await createImportedQuotation(parsed.data, session.user.id, stored);
+    return NextResponse.json(quotation, { status: 201 });
+  } catch (error) {
+    if (stored) await removeUnreferencedFile(stored.filepath).catch((cleanupError) => console.error("Import file cleanup failed", cleanupError));
+    const failure = quotationImportFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
-
-  return NextResponse.json({ id: quotation.id, quotationNumber: finalQuotationNumber }, { status: 201 });
 }

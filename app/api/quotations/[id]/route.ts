@@ -1,32 +1,19 @@
+import { readJson } from "@/lib/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-
-const itemSchema = z.object({
-  description: z.string().min(1),
-  quantity: z.number().positive(),
-  unitPrice: z.number().min(0),
-  order: z.number().default(0),
-});
-
-const updateSchema = z.object({
-  customerId: z.string().optional(),
-  subject: z.string().optional(),
-  notes: z.string().optional(),
-  terms: z.string().optional(),
-  validUntil: z.string().optional().nullable(),
-  status: z.enum(["DRAFT", "SENT", "ACCEPTED", "REJECTED"]).optional(),
-  items: z.array(itemSchema).optional(),
-});
+import { removeUnreferencedFile } from "@/lib/file-storage";
+import { quotationUpdateSchema, quotationTotal, lineTotal } from "@/lib/quotation-schema";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: pendingParams }: { params: Promise<{ id: string }> },
 ) {
+  const params = await pendingParams;
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const quotation = await prisma.quotation.findUnique({
     where: { id: params.id },
@@ -38,27 +25,41 @@ export async function GET(
     },
   });
 
-  if (!quotation) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!quotation)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(quotation);
 }
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: pendingParams }: { params: Promise<{ id: string }> },
 ) {
+  const params = await pendingParams;
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json();
-  const parsed = updateSchema.safeParse(body);
+  const body = await readJson(req);
+  const parsed = quotationUpdateSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const { items, validUntil, ...rest } = parsed.data;
+  const existing = await prisma.quotation.findUnique({ where: { id: params.id } });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (existing.createdById !== session.user.id && session.user.role !== "ADMIN")
+    return NextResponse.json({ error: "Only the creator or an administrator can edit this quotation." }, { status: 403 });
+  if (rest.customerId && !(await prisma.customer.findFirst({
+    where: { id: rest.customerId, companyId: existing.companyId, isActive: true },
+  })))
+    return NextResponse.json({ error: "Choose a customer belonging to this company." }, { status: 400 });
 
   const totalAmount = items
-    ? items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0)
+    ? quotationTotal(items)
     : undefined;
 
   const quotation = await prisma.quotation.update({
@@ -66,7 +67,9 @@ export async function PUT(
     data: {
       ...rest,
       ...(totalAmount !== undefined && { totalAmount }),
-      ...(validUntil !== undefined && { validUntil: validUntil ? new Date(validUntil) : null }),
+      ...(validUntil !== undefined && {
+        validUntil: validUntil ? new Date(validUntil) : null,
+      }),
       ...(items && {
         items: {
           deleteMany: {},
@@ -74,7 +77,7 @@ export async function PUT(
             description: item.description,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            total: item.quantity * item.unitPrice,
+            total: lineTotal(item),
             order: item.order,
           })),
         },
@@ -88,11 +91,26 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: pendingParams }: { params: Promise<{ id: string }> },
 ) {
+  const params = await pendingParams;
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const record = await prisma.quotation.findUnique({
+    where: { id: params.id },
+    include: { attachments: true },
+  });
+  if (!record)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (record.createdById !== session.user.id && session.user.role !== "ADMIN")
+    return NextResponse.json(
+      { error: "Only the creator or an administrator can delete this record." },
+      { status: 403 },
+    );
   await prisma.quotation.delete({ where: { id: params.id } });
+  for (const attachment of record.attachments)
+    await removeUnreferencedFile(attachment.filepath);
   return NextResponse.json({ success: true });
 }

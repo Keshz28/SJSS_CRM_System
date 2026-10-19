@@ -1,18 +1,11 @@
+import { positiveInteger } from "@/lib/query-input";
+import { readJson } from "@/lib/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-
-const customerSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  contactPerson: z.string().optional(),
-  email: z.string().email().optional().or(z.literal("")),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  notes: z.string().optional(),
-});
+import { customerSchema } from "@/lib/customer-schema";
+import { getRequestedCompany } from "@/lib/company-scope";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -20,11 +13,12 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") ?? "";
-  const page = parseInt(searchParams.get("page") ?? "1");
-  const limit = parseInt(searchParams.get("limit") ?? "20");
+  const companyId = await getRequestedCompany(req);
+  const page = positiveInteger(searchParams.get("page"), 1);
+  const limit = positiveInteger(searchParams.get("limit"), 20, 100);
   const skip = (page - 1) * limit;
 
-  const where = search
+  const searchWhere = search
     ? {
         OR: [
           { name: { contains: search, mode: "insensitive" as const } },
@@ -36,13 +30,15 @@ export async function GET(req: NextRequest) {
       }
     : { isActive: true };
 
+  const where = { ...searchWhere, ...(companyId && { companyId }) };
+
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip,
       take: limit,
-      include: { _count: { select: { quotations: true } } },
+      include: { company: { select: { name: true } }, _count: { select: { quotations: true } } },
     }),
     prisma.customer.count({ where }),
   ]);
@@ -54,11 +50,14 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json();
+  const body = await readJson(req);
   const parsed = customerSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
+
+  if (!(await prisma.company.findUnique({ where: { id: parsed.data.companyId } })))
+    return NextResponse.json({ error: "Company not found" }, { status: 400 });
 
   const customer = await prisma.customer.create({
     data: {

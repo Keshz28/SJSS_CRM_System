@@ -52,8 +52,8 @@ export function NavProgress() {
       className="fixed top-0 left-0 z-[9999] h-[2px] transition-all duration-300 ease-out"
       style={{
         width: `${width}%`,
-        background: "linear-gradient(to right, #CB3CFF, #00C2FF)",
-        boxShadow: "0 0 8px rgba(203,60,255,0.6)",
+        background: "linear-gradient(to right, var(--dx-accent), var(--dx-accent-2))",
+        boxShadow: "0 0 8px rgb(var(--dx-accent-rgb) / 0.4)",
       }}
     />
   );

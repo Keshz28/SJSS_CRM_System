@@ -4,22 +4,26 @@ import { Header } from "@/components/layout/Header";
 import { QuotationForm } from "@/components/quotations/QuotationForm";
 
 export default async function NewQuotationPage({
-  searchParams,
+  searchParams: pendingSearchParams,
 }: {
-  searchParams: { customerId?: string };
+  searchParams: Promise<{ customerId?: string }>;
 }) {
+  const searchParams = await pendingSearchParams;
   const [customers, { companies, companyId }] = await Promise.all([
     prisma.customer.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, contactPerson: true },
+      select: { id: true, name: true, contactPerson: true, companyId: true },
     }),
     getCompanyScope(),
   ]);
 
   return (
     <div className="flex flex-col flex-1">
-      <Header title="New Quotation" subtitle="Create a new quotation for a customer" />
+      <Header
+        title="New Quotation"
+        subtitle="Create a new quotation for a customer"
+      />
       <main className="flex-1 p-4 sm:p-6">
         <QuotationForm
           customers={customers}

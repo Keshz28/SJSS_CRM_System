@@ -3,13 +3,29 @@
 import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { formatCurrency, formatDate, dxStatusColor, statusLabel } from "@/lib/utils";
 import {
-  Search, Plus, FileText, ChevronLeft, ChevronRight,
-  Eye, Trash2, Paperclip, Upload,
+  formatCurrency,
+  formatDate,
+  dxStatusColor,
+  statusLabel,
+} from "@/lib/utils";
+import {
+  Search,
+  Plus,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Trash2,
+  Paperclip,
+  Upload,
 } from "lucide-react";
 
-interface Company { id: string; name: string; prefix: string }
+interface Company {
+  id: string;
+  name: string;
+  prefix: string;
+}
 
 interface Quotation {
   id: string;
@@ -42,7 +58,15 @@ const STATUS_TABS = [
   { value: "REJECTED", label: "Rejected" },
 ];
 
-export function QuotationList({ quotations, total, page, limit, search, status, showCompanyColumn }: Props) {
+export function QuotationList({
+  quotations,
+  total,
+  page,
+  limit,
+  search,
+  status,
+  showCompanyColumn,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [searchValue, setSearchValue] = useState(search);
@@ -85,6 +109,9 @@ export function QuotationList({ quotations, total, page, limit, search, status, 
           />
         </form>
         <div className="flex-1" />
+        <Link href="/kanban" className="dx-btn-ghost">
+          Board view
+        </Link>
         <Link href="/quotations/import" className="dx-btn-ghost">
           <Upload className="w-4 h-4" />
           Upload
@@ -103,7 +130,7 @@ export function QuotationList({ quotations, total, page, limit, search, status, 
             onClick={() => navigate({ search, status: tab.value })}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               status === tab.value
-                ? "bg-gradient-to-r from-dx-accent to-dx-accent-2 text-white"
+                ? "bg-gradient-to-r from-dx-action to-dx-action-2 text-white"
                 : "text-dx-ink-muted hover:text-dx-ink hover:bg-dx-surface-hover"
             }`}
           >
@@ -115,9 +142,14 @@ export function QuotationList({ quotations, total, page, limit, search, status, 
       {/* Table */}
       <div className="dx-card overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-dx-line">
-          <h2 className="text-base font-semibold text-dx-ink">All Quotations</h2>
+          <h2 className="text-base font-semibold text-dx-ink">
+            All Quotations
+          </h2>
           <p className="text-sm text-dx-ink-muted">
-            <span className="text-dx-accent font-medium">{from}–{to}</span> of {total}
+            <span className="text-dx-accent font-medium">
+              {from}–{to}
+            </span>{" "}
+            of {total}
           </p>
         </div>
 
@@ -125,10 +157,15 @@ export function QuotationList({ quotations, total, page, limit, search, status, 
           <div className="py-16 text-center">
             <FileText className="w-10 h-10 text-dx-ink-faint mx-auto mb-3" />
             <p className="text-dx-ink-muted text-sm">
-              {search || status ? "No quotations match your filters." : "No quotations yet."}
+              {search || status
+                ? "No quotations match your filters."
+                : "No quotations yet."}
             </p>
             {!search && !status && (
-              <Link href="/quotations/new" className="dx-btn-gradient inline-flex mt-4">
+              <Link
+                href="/quotations/new"
+                className="dx-btn-gradient inline-flex mt-4"
+              >
                 Create first quotation
               </Link>
             )}
@@ -138,21 +175,38 @@ export function QuotationList({ quotations, total, page, limit, search, status, 
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-dx-line">
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide">Quote No.</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide">Customer</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide">
+                    Quote No.
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide">
+                    Customer
+                  </th>
                   {showCompanyColumn && (
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide hidden lg:table-cell">Company</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide hidden lg:table-cell">
+                      Company
+                    </th>
                   )}
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide hidden md:table-cell">Subject</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide">Status</th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold text-dx-ink-faint uppercase tracking-wide">Amount</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide hidden sm:table-cell">Date</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide hidden md:table-cell">
+                    Subject
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide">
+                    Status
+                  </th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold text-dx-ink-faint uppercase tracking-wide">
+                    Amount
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-dx-ink-faint uppercase tracking-wide hidden sm:table-cell">
+                    Date
+                  </th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
               <tbody>
                 {quotations.map((q) => (
-                  <tr key={q.id} className="border-b border-dx-line last:border-0 hover:bg-dx-surface-hover transition-colors">
+                  <tr
+                    key={q.id}
+                    className="border-b border-dx-line last:border-0 hover:bg-dx-surface-hover transition-colors"
+                  >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xs font-semibold text-dx-accent">
@@ -165,7 +219,9 @@ export function QuotationList({ quotations, total, page, limit, search, status, 
                         )}
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 font-medium text-dx-ink">{q.customer.name}</td>
+                    <td className="px-5 py-3.5 font-medium text-dx-ink">
+                      {q.customer.name}
+                    </td>
                     {showCompanyColumn && (
                       <td className="px-5 py-3.5 hidden lg:table-cell">
                         {q.company ? (
@@ -181,7 +237,9 @@ export function QuotationList({ quotations, total, page, limit, search, status, 
                       {q.subject ?? "—"}
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${dxStatusColor(q.status)}`}>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${dxStatusColor(q.status)}`}
+                      >
                         {statusLabel(q.status)}
                       </span>
                     </td>
@@ -223,14 +281,18 @@ export function QuotationList({ quotations, total, page, limit, search, status, 
             </p>
             <div className="flex gap-1.5">
               <button
-                onClick={() => navigate({ search, status, page: String(page - 1) })}
+                onClick={() =>
+                  navigate({ search, status, page: String(page - 1) })
+                }
                 disabled={page === 1}
                 className="w-8 h-8 flex items-center justify-center rounded-lg border border-dx-line text-dx-ink-muted hover:text-dx-ink hover:border-dx-accent/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
-                onClick={() => navigate({ search, status, page: String(page + 1) })}
+                onClick={() =>
+                  navigate({ search, status, page: String(page + 1) })
+                }
                 disabled={page === totalPages}
                 className="w-8 h-8 flex items-center justify-center rounded-lg border border-dx-line text-dx-ink-muted hover:text-dx-ink hover:border-dx-accent/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >

@@ -20,6 +20,7 @@ import {
 interface Customer {
   id: string;
   name: string;
+  company: { name: string } | null;
   contactPerson: string | null;
   email: string | null;
   phone: string | null;
@@ -45,12 +46,12 @@ interface Props {
 }
 
 const AVATAR_GRADIENTS = [
-  "from-[#CB3CFF] to-[#7F4BFF]",
-  "from-[#00C2FF] to-[#0078FF]",
-  "from-[#14CA74] to-[#05C168]",
-  "from-[#FDB52A] to-[#FF8A3C]",
-  "from-[#FF5A65] to-[#FF3C8A]",
-  "from-[#9A91FB] to-[#5B5BFF]",
+  "from-[#1D4ED8] to-[#2459B7]",
+  "from-[#075985] to-[#0369A1]",
+  "from-[#166534] to-[#15803D]",
+  "from-[#92400E] to-[#9A5800]",
+  "from-[#991B1B] to-[#B91C1C]",
+  "from-[#334155] to-[#475569]",
 ];
 
 function initials(name: string) {
@@ -100,25 +101,25 @@ export function CustomerList({
       label: "Total Customers",
       value: stats.totalCustomers,
       icon: Users,
-      tint: "from-[#A855F7] to-[#6366F1]",   // violet → indigo
+      tint: "from-[#1D4ED8] to-[#2459B7]",   // violet → indigo
     },
     {
       label: "New This Month",
       value: stats.newThisMonth,
       icon: UserPlus,
-      tint: "from-[#0EA5E9] to-[#14B8A6]",   // sky → teal
+      tint: "from-[#0369A1] to-[#075985]",   // sky → teal
     },
     {
       label: "With Quotations",
       value: stats.withQuotes,
       icon: Sparkles,
-      tint: "from-[#10B981] to-[#84CC16]",   // emerald → lime
+      tint: "from-[#15803D] to-[#166534]",   // emerald → lime
     },
     {
       label: "Total Quotations",
       value: stats.totalQuotes,
       icon: FileText,
-      tint: "from-[#F59E0B] to-[#F97316]",   // amber → orange
+      tint: "from-[#B45309] to-[#92400E]",   // amber → orange
     },
   ];
 
@@ -234,6 +235,7 @@ export function CustomerList({
                           <span className="block font-medium text-dx-ink group-hover:text-dx-accent transition-colors truncate">
                             {c.name}
                           </span>
+                          <span className="block text-xs text-dx-ink-muted">{c.company?.name || "Company not assigned — edit to assign"}</span>
                           {c.contactPerson && (
                             <span className="block text-xs text-dx-ink-faint truncate">
                               {c.contactPerson}
