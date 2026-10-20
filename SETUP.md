@@ -108,6 +108,11 @@ durable storage configuration have been replaced.
 
 ## Connecting Supabase later
 
+Vercel and Gemini have been selected for the next stage. Follow
+[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) and the current setup step in chat.
+Hosted private uploads and provider configuration are not implemented merely by
+creating accounts or copying environment variables.
+
 Follow the [official Supabase Prisma guide](https://supabase.com/docs/guides/database/prisma)
 to choose connection strings appropriate to the deployment network and pooling
 mode. Configure `DATABASE_URL` and `DIRECT_URL` in the hosting environment rather

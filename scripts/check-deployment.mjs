@@ -26,6 +26,23 @@ try {
   required(!users.some((user) => demoEmails.includes(user.email.toLowerCase())), "Deactivate the demo accounts after a verified sign-in with the real administrator.");
   const roles = await prisma.$queryRaw`SELECT rolsuper, rolcreatedb, rolcreaterole FROM pg_roles WHERE rolname = current_user`;
   required(roles.every((role) => !role.rolsuper && !role.rolcreatedb && !role.rolcreaterole), "Use a non-superuser runtime database role without role/database creation privileges.");
+  // NextAuth is the only application identity system. Supabase's browser roles
+  // must not gain a second path around the CRM server's permission checks.
+  const browserRoles = await prisma.$queryRaw`SELECT rolname FROM pg_roles WHERE rolname IN ('anon', 'authenticated')`;
+  if (browserRoles.length) {
+    const crmTables = ["users", "notifications", "companies", "customers", "quotations", "quotation_items", "attachments", "site_visits", "projects", "project_preferences", "work_groups", "work_group_members", "work_group_messages", "quotation_sequences", "login_buckets", "email_login_challenges", "invoice_sequences", "_prisma_migrations"];
+    const tables = await prisma.$queryRaw`SELECT c.relname, c.relrowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'r'`;
+    const privateTables = tables.filter((table) => crmTables.includes(table.relname));
+    required(privateTables.every((table) => table.relrowsecurity), "Enable RLS on every CRM table before using a Supabase hosted database.");
+    let browserAccess = false;
+    for (const role of browserRoles) {
+      for (const table of privateTables) {
+        const [{ allowed }] = await prisma.$queryRaw`SELECT has_table_privilege(${role.rolname}::text, ${'public.' + table.relname}::text, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') AS allowed`;
+        if (allowed) browserAccess = true;
+      }
+    }
+    required(!browserAccess, "Revoke Supabase anon/authenticated role privileges on CRM tables; access must go through the authenticated CRM server.");
+  }
   const pending = await prisma.$queryRaw`SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL`;
   required(pending.length === 0, "Resolve incomplete database migrations.");
   await prisma.loginBucket.count();

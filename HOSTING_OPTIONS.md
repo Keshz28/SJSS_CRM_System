@@ -8,6 +8,13 @@ On 19 October the owner deferred domain/hosting selection and requested that loc
 preparation continue. No provider-specific cloud migration or purchase is approved.
 Domain registration and recurring app/database hosting are separate costs.
 
+On 20 October the owner selected Vercel and Gemini and requested guided setup.
+Provider accounts/projects have not yet been created. Supabase remains the
+recommended database/private-file service; its plan and any purchases still need
+to be chosen. Follow DEPLOYMENT_GUIDE.md and the current step in chat. The earlier
+hold on automatic deployments remains until the app and external configuration
+are ready to review.
+
 The repository has historical Vercel deployments. `vercel.json` disables automatic
 Git-triggered Vercel deployments for the reviewed source until hosting is ready.
 Before a deliberate launch, review this guard alongside the remaining security,

@@ -3,6 +3,13 @@
 Status: proposed product workflow, not an implemented quotation generator.
 The existing PDF/image metadata autofill is a different, limited feature.
 
+20 October update: the owner selected Gemini for the first integration and Vercel
+for hosting. The Claude section below is retained as an earlier design option;
+its safety, pricing, validation and approval requirements still apply to Gemini.
+Account/key/billing setup and a supported-model integration are still pending.
+See DEPLOYMENT_GUIDE.md for the staged setup sequence. No paid AI calls have been
+enabled as part of provider selection.
+
 ## Proposed Claude integration — 19 October discussion
 
 Use the Claude Messages API from an authenticated server endpoint for the first

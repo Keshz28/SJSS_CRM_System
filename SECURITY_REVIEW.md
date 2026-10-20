@@ -1,4 +1,4 @@
-# Pre-deployment review — updated 19 October 2026
+# Pre-deployment review — updated 20 October 2026
 
 **Deployment decision: hold.** The code review found and addressed concrete
 issues, but real accounts and hosting controls below still
@@ -47,10 +47,10 @@ remain restricted to their selected members. There is no public signup.
 ## Decisions and launch requirements still open
 
 1. **Real accounts:** the owner chose named replacement accounts followed by demo
-   deactivation. Sukesh's administrator account has been prepared inactive, with
-   an unusable random initial password. Choose a private password with the existing
-   administrator's Manage Users screen using **Set password and activate**. No
-   password or email-service secret should be sent through chat. No demo account
+   deactivation. Sukesh has chosen a private password and the named administrator
+   account is now active. Confirm a sign-in with that account; real email-code
+   verification still awaits provider setup. No password or email-service secret
+   should be sent through chat. No demo account
    has been deactivated. The changeover endpoint/UI requires a real administrator's
    verified sign-in and preserves existing project/customer history. Direct demo
    deletion/deactivation has the same verification guard.
@@ -67,7 +67,9 @@ remain restricted to their selected members. There is no public signup.
    See HOSTING_OPTIONS.md for the $45/month managed baseline and lower-cost
    self-managed alternative. On 19 October the owner deferred domain/hosting
    selection and requested completion of local preparation. No services have
-   been purchased. Choose the final HTTPS domain, set a new random NEXTAUTH_SECRET,
+   been purchased. On 20 October the owner selected Vercel and Gemini and requested
+   guided provider setup; DEPLOYMENT_GUIDE.md records the order and current gaps.
+   A temporary vercel.app address can be used once ready. Set a new random NEXTAUTH_SECRET,
    configure trusted proxy/edge rate limits and upload-body/time limits, private
    durable file storage and database TLS/network restrictions. Do not expose the
    PostgreSQL port publicly or serve .local/backups/.env files. Deploy a production
@@ -141,6 +143,11 @@ remain restricted to their selected members. There is no public signup.
   HTTP domain, unconfigured verification email, missing durable UPLOAD_DIR and
   active demo accounts with five known passwords. Passing this script does not
   replace the manual requirements above.
+- The 20 October deployment preparation adds a read-only Supabase check: when
+  anon/authenticated database roles exist, CRM tables must have RLS and must not
+  grant those roles direct privileges. The CRM uses NextAuth/server permissions;
+  a separate Supabase Data API path must not bypass them. The privilege query was
+  checked with allowed/unrelated local roles; hosted settings remain unverified.
 
 ## Reference guidance
 
