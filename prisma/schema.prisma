@@ -9,16 +9,25 @@ datasource db {
 }
 
 model User {
-  id           String      @id @default(cuid())
-  email        String      @unique
-  name         String
-  passwordHash String
-  role         Role        @default(USER)
-  isActive     Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  quotations   Quotation[]
-  siteVisits   SiteVisit[]
+  id             String       @id @default(cuid())
+  email          String       @unique
+  name           String
+  passwordHash   String
+  role           Role         @default(USER)
+  isActive       Boolean      @default(true)
+  sessionVersion Int          @default(0)
+  emailVerifiedAt DateTime?
+  emailLoginChallenge EmailLoginChallenge?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  quotations     Quotation[]
+  siteVisits     SiteVisit[]
+  projects       Project[]
+  uploads        Attachment[]
+  projectPreferences ProjectPreference[]
+  workGroupsCreated WorkGroup[]
+  workGroupMemberships WorkGroupMember[]
+  workGroupMessages WorkGroupMessage[]
 
   receivedNotifications Notification[] @relation("ReceivedNotifications")
   sentNotifications     Notification[] @relation("SentNotifications")
@@ -27,17 +36,17 @@ model User {
 }
 
 model Notification {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   recipientId String
-  recipient   User     @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  recipient   User      @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
   senderId    String?
-  sender      User?    @relation("SentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
+  sender      User?     @relation("SentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
   title       String
   body        String
-  isBroadcast Boolean  @default(false)
-  read        Boolean  @default(false)
+  isBroadcast Boolean   @default(false)
+  read        Boolean   @default(false)
   readAt      DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   @@index([recipientId, read])
   @@map("notifications")
@@ -61,12 +70,17 @@ model Company {
   quotations     Quotation[]
   sequences      QuotationSequence[]
   siteVisits     SiteVisit[]
+  projects       Project[]
+  customers      Customer[]
+  workGroups     WorkGroup[]
 
   @@map("companies")
 }
 
 model Customer {
   id            String      @id @default(cuid())
+  companyId     String?
+  company       Company?    @relation(fields: [companyId], references: [id])
   name          String
   contactPerson String?
   email         String?
@@ -79,6 +93,9 @@ model Customer {
   updatedAt     DateTime    @updatedAt
   quotations    Quotation[]
   siteVisits    SiteVisit[]
+  projects      Project[]
+
+  @@index([companyId, isActive])
 
   @@map("customers")
 }
@@ -105,6 +122,8 @@ model Quotation {
   items           QuotationItem[]
   attachments     Attachment[]
   siteVisit       SiteVisit?
+  projectId       String?
+  project         Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@map("quotations")
 }
@@ -123,41 +142,142 @@ model QuotationItem {
 }
 
 model Attachment {
-  id          String     @id @default(cuid())
-  quotationId String?
-  quotation   Quotation? @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  siteVisitId String?
-  siteVisit   SiteVisit? @relation(fields: [siteVisitId], references: [id], onDelete: Cascade)
-  filename    String
-  filepath    String
-  filesize    Int
-  mimetype    String
-  uploadedAt  DateTime   @default(now())
+  id             String     @id @default(cuid())
+  quotationId    String?
+  quotation      Quotation? @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  siteVisitId    String?
+  siteVisit      SiteVisit? @relation(fields: [siteVisitId], references: [id], onDelete: Cascade)
+  filename       String
+  filepath       String
+  filesize       Int
+  mimetype       String
+  uploadedAt     DateTime   @default(now())
+  caption        String?
+  clientUploadId String?    @unique
+  uploadedById   String?
+  uploadedBy     User?      @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@map("attachments")
 }
 
 model SiteVisit {
-  id           String          @id @default(cuid())
-  companyId    String
-  company      Company         @relation(fields: [companyId], references: [id])
-  customerId   String?
-  customer     Customer?       @relation(fields: [customerId], references: [id])
-  contactName  String?
-  contactPhone String?
-  location     String?
-  title        String
-  notes        String?
-  status       SiteVisitStatus @default(CAPTURED)
-  quotationId  String?         @unique
-  quotation    Quotation?      @relation(fields: [quotationId], references: [id])
-  createdById  String
-  createdBy    User            @relation(fields: [createdById], references: [id])
-  attachments  Attachment[]
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id              String          @id @default(cuid())
+  companyId       String
+  company         Company         @relation(fields: [companyId], references: [id])
+  customerId      String?
+  customer        Customer?       @relation(fields: [customerId], references: [id])
+  contactName     String?
+  contactPhone    String?
+  location        String?
+  title           String
+  notes           String?
+  status          SiteVisitStatus @default(CAPTURED)
+  quotationId     String?         @unique
+  quotation       Quotation?      @relation(fields: [quotationId], references: [id])
+  createdById     String
+  createdBy       User            @relation(fields: [createdById], references: [id])
+  attachments     Attachment[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  projectId       String?
+  project         Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  clientRequestId String?         @unique
 
+  @@index([projectId, createdAt])
   @@map("site_visits")
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id])
+  customerId  String?
+  customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  location    String?
+  description String?
+  status      ProjectStatus @default(PLANNED)
+  createdById String
+  createdBy   User          @relation(fields: [createdById], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+  siteVisits  SiteVisit[]
+  quotations  Quotation[]
+  preferences ProjectPreference[]
+  workGroups WorkGroup[]
+
+  @@index([companyId, status])
+  @@index([companyId, deletedAt])
+  @@map("projects")
+}
+
+model ProjectPreference {
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  isPinned  Boolean @default(false)
+  isStarred Boolean @default(false)
+
+  @@id([userId, projectId])
+  @@map("project_preferences")
+}
+
+model WorkGroup {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  members     WorkGroupMember[]
+  messages    WorkGroupMessage[]
+
+  @@index([companyId, updatedAt])
+  @@index([projectId])
+  @@map("work_groups")
+}
+
+model WorkGroupMember {
+  groupId  String
+  group    WorkGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt DateTime  @default(now())
+
+  @@id([groupId, userId])
+  @@index([userId])
+  @@map("work_group_members")
+}
+
+model WorkGroupMessage {
+  id              String    @id @default(cuid())
+  groupId         String
+  group           WorkGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  authorId        String?
+  author          User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorName      String
+  body            String
+  isAnnouncement  Boolean   @default(false)
+  clientRequestId String    @unique
+  createdAt       DateTime  @default(now())
+
+  @@index([groupId, createdAt, id])
+  @@index([groupId, isAnnouncement, createdAt])
+  @@map("work_group_messages")
+}
+
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  ON_HOLD
+  COMPLETED
 }
 
 model QuotationSequence {
@@ -174,6 +294,36 @@ model QuotationSequence {
 enum Role {
   ADMIN
   USER
+}
+
+model LoginBucket {
+  key       String   @id
+  attempts  Int
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@map("login_buckets")
+}
+
+model EmailLoginChallenge {
+  id             String   @id
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash       String
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  attempts       Int      @default(0)
+  sessionVersion Int
+
+  @@index([expiresAt])
+  @@map("email_login_challenges")
+}
+
+model InvoiceSequence {
+  year  Int @id
+  value Int @default(0)
+
+  @@map("invoice_sequences")
 }
 
 enum QuotationStatus {

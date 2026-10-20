@@ -1,7 +1,19 @@
+import { readForm } from "@/lib/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { z } from "zod";
+import { FileValidationError, readValidatedFile } from "@/lib/file-storage";
+import { quotationImportSchema } from "@/lib/quotation-import";
+
+const extractedSchema = z.object({
+  quotationNumber: quotationImportSchema.shape.quotationNumber.nullish(),
+  companyName: quotationImportSchema.shape.companyName.nullish(),
+  subject: quotationImportSchema.shape.subject.nullish(),
+  amount: quotationImportSchema.shape.amount.nullish(),
+  date: quotationImportSchema.shape.date.nullish(),
+});
 
 const PROMPT = `Extract these fields from the quotation document and return ONLY valid JSON, nothing else:
 {
@@ -17,23 +29,28 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!process.env.GEMINI_API_KEY) {
-    return NextResponse.json({ error: "GEMINI_API_KEY not configured" }, { status: 503 });
-  }
-
-  const formData = await req.formData();
-  const file = formData.get("file") as File | null;
-  if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
+  let formData: FormData;
+  try { formData = await readForm(req, 11 * 1024 * 1024); }
+  catch { return NextResponse.json({ error: "Choose a valid document upload." }, { status: 400 }); }
+  const file = formData.get("file");
+  if (!(file instanceof File) || !file.size || file.size > 10 * 1024 * 1024)
+    return NextResponse.json({ error: "Choose a non-empty PDF or JPG/PNG file up to 10 MB." }, { status: 400 });
 
   const isPDF = file.type === "application/pdf";
-  const isImage = file.type.startsWith("image/");
+  const isImage = ["image/jpeg", "image/png"].includes(file.type);
 
   if (!isPDF && !isImage) {
     return NextResponse.json({ error: "Only PDF and image files support auto-fill" }, { status: 400 });
   }
 
-  const bytes = await file.arrayBuffer();
-  const base64 = Buffer.from(bytes).toString("base64");
+  let base64: string;
+  try { base64 = (await readValidatedFile(file)).bytes.toString("base64"); }
+  catch (error) {
+    if (error instanceof FileValidationError) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: "Could not read the document. Please try again." }, { status: 400 });
+  }
+  if (!process.env.GEMINI_API_KEY)
+    return NextResponse.json({ error: "Document auto-fill is unavailable. Please enter the details manually." }, { status: 503 });
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -52,13 +69,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Gemini API error — please fill in the fields manually." }, { status: 502 });
   }
 
-  const raw = result.response.text().trim();
-
   try {
-    const cleaned = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
-    const extracted = JSON.parse(cleaned);
-    return NextResponse.json(extracted);
+    const raw = result.response.text().trim();
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+    const extracted = extractedSchema.parse(JSON.parse(cleaned));
+    return NextResponse.json({ ...extracted, amount: extracted.amount?.toNumber() ?? null });
   } catch {
-    return NextResponse.json({ error: "Could not parse response", raw }, { status: 422 });
+    return NextResponse.json({ error: "Could not read reliable document details. Please enter them manually." }, { status: 422 });
   }
 }

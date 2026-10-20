@@ -1,3 +1,4 @@
+import { readJson } from "@/lib/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -5,7 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 const replySchema = z.object({
-  body: z.string().min(1, "Reply can't be empty").max(2000, "Reply is too long"),
+  body: z
+    .string()
+    .min(1, "Reply can't be empty")
+    .max(2000, "Reply is too long"),
 });
 
 // Reply to a message in your inbox.
@@ -13,15 +17,20 @@ const replySchema = z.object({
 //   • An admin replying goes back to the user who messaged them.
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: pendingParams }: { params: Promise<{ id: string }> },
 ) {
+  const params = await pendingParams;
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json();
+  const body = await readJson(req);
   const parsed = replySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   // The message being replied to must belong to the signed-in user.
@@ -40,7 +49,7 @@ export async function POST(
     if (!original.sender || original.sender.id === session.user.id) {
       return NextResponse.json(
         { error: "There's no one to reply to on this message" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     recipientIds = [original.sender.id];
@@ -60,12 +69,12 @@ export async function POST(
 
   // Never message yourself.
   recipientIds = Array.from(new Set(recipientIds)).filter(
-    (id) => id !== session.user.id
+    (id) => id !== session.user.id,
   );
   if (recipientIds.length === 0) {
     return NextResponse.json(
       { error: "No active administrator is available to receive your reply" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 

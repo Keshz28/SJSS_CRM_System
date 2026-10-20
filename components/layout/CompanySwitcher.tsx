@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { COMPANY_SCOPE_COOKIE } from "@/lib/company-scope-constants";
 import { useCompanyScope } from "./CompanyScopeProvider";
@@ -17,6 +17,7 @@ import { useCompanyScope } from "./CompanyScopeProvider";
 export function CompanySwitcher() {
   const { companies, companyId } = useCompanyScope();
   const router = useRouter();
+  const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
 
   // Nothing to switch between if there's only one (or no) company.
@@ -26,13 +27,24 @@ export function CompanySwitcher() {
     if (id === companyId) return;
     // 1 year, site-wide. Not httpOnly so the client can set it directly.
     document.cookie = `${COMPANY_SCOPE_COOKIE}=${id}; path=/; max-age=31536000; samesite=lax`;
-    startTransition(() => router.refresh());
+    startTransition(() => {
+      // Leave a record's workspace when moving to another company's view.
+      const record = /^\/(customers|projects|quotations|site-visits)\/(?!new$|import$)[^/]+(?:\/edit)?$/.exec(pathname);
+      const query = new URLSearchParams(window.location.search);
+      const hadPage = query.has("page");
+      query.delete("page");
+      if (pathname === "/site-visits/new" && (query.has("projectId") || query.has("visitId")))
+        router.push("/site-visits/new");
+      else if (record) router.push(`/${record[1]}`);
+      else if (hadPage) router.replace(`${pathname}?${query}`);
+      router.refresh();
+    });
   }
 
   const pill = (active: boolean) =>
     `px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
       active
-        ? "bg-gradient-to-r from-dx-accent to-dx-accent-2 text-white shadow-sm"
+        ? "bg-gradient-to-r from-dx-action to-dx-action-2 text-white shadow-sm"
         : "text-dx-ink-muted hover:text-dx-ink hover:bg-dx-surface-hover"
     }`;
 
@@ -46,13 +58,15 @@ export function CompanySwitcher() {
       title="Choose which company to view across the whole system"
     >
       <Building2 className="w-4 h-4 text-dx-ink-faint ml-1.5 mr-0.5 flex-shrink-0" />
-      <button type="button" onClick={() => select("")} className={pill(!companyId)}>
+      <button type="button" disabled={isPending} aria-pressed={!companyId} onClick={() => select("")} className={pill(!companyId)}>
         All companies
       </button>
       {companies.map((co) => (
         <button
           key={co.id}
           type="button"
+          disabled={isPending}
+          aria-pressed={companyId === co.id}
           onClick={() => select(co.id)}
           className={pill(companyId === co.id)}
         >

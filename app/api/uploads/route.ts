@@ -1,86 +1,103 @@
+import { readForm } from "@/lib/request-body";
+import { activeVisitWhere } from "@/lib/project-visibility";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { FileValidationError, removeUnreferencedFile, storeFile } from "@/lib/file-storage";
+import { z } from "zod";
 
-const ALLOWED_TYPES = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-  // Video (site walkthroughs)
-  "video/mp4",
-  "video/quicktime", // iPhone .mov
-  "video/webm",
-  "video/3gpp",
-  "video/x-matroska",
-];
-
-// Generous ceiling so phone videos fit. This is a safety valve against a
-// runaway upload, not a product limit — raise it freely. NOTE: large videos
-// should move to direct Supabase Storage uploads (Phase 5); the current route
-// buffers the whole file in memory, which is fine locally but not serverless.
-const MAX_SIZE = 250 * 1024 * 1024; // 250 MB
+const metaSchema = z
+  .object({
+    quotationId: z
+      .string()
+      .regex(/^[a-zA-Z0-9_-]+$/)
+      .nullable(),
+    siteVisitId: z
+      .string()
+      .regex(/^[a-zA-Z0-9_-]+$/)
+      .nullable(),
+    caption: z.string().trim().max(1000),
+    clientUploadId: z.string().uuid().nullable(),
+  })
+  .refine(
+    (d) => Boolean(d.quotationId) !== Boolean(d.siteVisitId),
+    "Choose one media owner",
+  );
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const formData = await req.formData();
-  const file = formData.get("file") as File | null;
-  const quotationId = (formData.get("quotationId") as string | null) || null;
-  const siteVisitId = (formData.get("siteVisitId") as string | null) || null;
-
-  if (!file || (!quotationId && !siteVisitId)) {
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const form = await readForm(req);
+  const file = form.get("file");
+  const parsed = metaSchema.safeParse({
+    quotationId: form.get("quotationId") || null,
+    siteVisitId: form.get("siteVisitId") || null,
+    caption: form.get("caption") || "",
+    clientUploadId: form.get("clientUploadId") || null,
+  });
+  if (!(file instanceof File) || !parsed.success)
     return NextResponse.json(
-      { error: "File and a quotationId or siteVisitId are required" },
-      { status: 400 }
+      { error: "A file and one valid visit or quotation are required." },
+      { status: 400 },
+    );
+  const { quotationId, siteVisitId, caption, clientUploadId } = parsed.data;
+  const owner = siteVisitId
+    ? await prisma.siteVisit.findFirst({ where: { id: siteVisitId, ...activeVisitWhere } })
+    : await prisma.quotation.findUnique({ where: { id: quotationId! } });
+  if (!owner)
+    return NextResponse.json({ error: "Record not found" }, { status: 404 });
+  if (owner.createdById !== session.user.id && session.user.role !== "ADMIN")
+    return NextResponse.json({ error: "Only the creator or an administrator can add files to this record." }, { status: 403 });
+  const existing = clientUploadId
+    ? await prisma.attachment.findUnique({ where: { clientUploadId } })
+    : null;
+  if (existing) {
+    if (
+      existing.uploadedById !== session.user.id ||
+      existing.siteVisitId !== siteVisitId ||
+      existing.quotationId !== quotationId
+    )
+      return NextResponse.json(
+        { error: "Upload key already used" },
+        { status: 409 },
+      );
+    return NextResponse.json(existing);
+  }
+  let stored: Awaited<ReturnType<typeof storeFile>>;
+  try {
+    stored = await storeFile(file);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof FileValidationError ? error.message : "Could not store the file. Please try again." },
+      { status: error instanceof FileValidationError ? 400 : 503 },
     );
   }
-
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return NextResponse.json({ error: "File type not allowed" }, { status: 400 });
+  try {
+    const attachment = await prisma.attachment.create({
+      data: {
+        ...stored,
+        quotationId,
+        siteVisitId,
+        caption: caption || null,
+        clientUploadId,
+        uploadedById: session.user.id,
+      },
+    });
+    return NextResponse.json(attachment, { status: 201 });
+  } catch (error) {
+    await removeUnreferencedFile(stored.filepath);
+    // A retry can arrive before the first request's response reaches the phone.
+    const duplicate = clientUploadId
+      ? await prisma.attachment.findUnique({ where: { clientUploadId } })
+      : null;
+    if (
+      duplicate?.uploadedById === session.user.id &&
+      duplicate.siteVisitId === siteVisitId &&
+      duplicate.quotationId === quotationId
+    )
+      return NextResponse.json(duplicate);
+    throw error;
   }
-
-  if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: "File too large (max 15 MB)" }, { status: 400 });
-  }
-
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-
-  // Folder is named by whichever owner the attachment belongs to.
-  const ownerFolder = quotationId ?? siteVisitId!;
-  const uploadDir = path.join(process.cwd(), "public", "uploads", ownerFolder);
-  await mkdir(uploadDir, { recursive: true });
-
-  const ext = path.extname(file.name);
-  const safeName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-  const filePath = path.join(uploadDir, safeName);
-
-  await writeFile(filePath, buffer);
-
-  const relativePath = `uploads/${ownerFolder}/${safeName}`;
-
-  const attachment = await prisma.attachment.create({
-    data: {
-      quotationId,
-      siteVisitId,
-      filename: file.name,
-      filepath: relativePath,
-      filesize: file.size,
-      mimetype: file.type,
-    },
-  });
-
-  return NextResponse.json(attachment, { status: 201 });
 }

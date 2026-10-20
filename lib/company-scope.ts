@@ -20,7 +20,7 @@ export interface CompanyScope {
  */
 export async function getCompanyScope(): Promise<CompanyScope> {
   const companies = await getCompanies();
-  const raw = cookies().get(COMPANY_SCOPE_COOKIE)?.value ?? "";
+  const raw = (await cookies()).get(COMPANY_SCOPE_COOKIE)?.value ?? "";
   const company = companies.find((c) => c.id === raw) ?? null;
   return { companies, companyId: company?.id ?? "", company };
 }
@@ -34,19 +34,17 @@ export function scopeWhere(companyId: string): Record<string, unknown> {
 }
 
 /**
- * Prisma `where` fragment for Customers, which are SHARED across both
- * companies (no companyId column). When a company is selected we narrow to
- * customers that have actually done business with it — i.e. they have at
- * least one quotation or site visit belonging to that company.
- *
- * Returns `{}` for "All companies" (the full shared address book).
+ * Customers belong directly to a company, even before their first quotation.
+ * Legacy customers without a known company remain visible in All companies
+ * with an explicit assignment notice.
  */
 export function customerScopeWhere(companyId: string): Record<string, unknown> {
-  if (!companyId) return {};
-  return {
-    OR: [
-      { quotations: { some: { companyId } } },
-      { siteVisits: { some: { companyId } } },
-    ],
-  };
+  return companyId ? { companyId } : {};
+}
+
+/** Explicit API filter overrides the view cookie; absent filters inherit it. */
+export async function getRequestedCompany(req: { nextUrl: URL }) {
+  const scope = await getCompanyScope();
+  const requested = req.nextUrl.searchParams.get("company");
+  return requested === null ? scope.companyId : requested;
 }

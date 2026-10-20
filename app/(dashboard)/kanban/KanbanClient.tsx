@@ -24,10 +24,10 @@ interface Props {
 }
 
 const COLUMNS = [
-  { key: "draft" as const, label: "Draft", color: "#AEB9E1", bg: "bg-[#AEB9E1]/10", border: "border-[#AEB9E1]/20" },
-  { key: "sent" as const, label: "Sent", color: "#00C2FF", bg: "bg-[#00C2FF]/10", border: "border-[#00C2FF]/20" },
-  { key: "accepted" as const, label: "Accepted", color: "#14CA74", bg: "bg-[#14CA74]/10", border: "border-[#14CA74]/20" },
-  { key: "rejected" as const, label: "Rejected", color: "#FF5A65", bg: "bg-[#FF5A65]/10", border: "border-[#FF5A65]/20" },
+  { key: "draft" as const, label: "Draft", color: "var(--dx-ink-muted)", bg: "bg-dx-line/20", border: "border-dx-line" },
+  { key: "sent" as const, label: "Sent", color: "var(--dx-accent)", bg: "bg-dx-accent/10", border: "border-dx-accent/20" },
+  { key: "accepted" as const, label: "Accepted", color: "var(--dx-success)", bg: "bg-dx-success/10", border: "border-dx-success/20" },
+  { key: "rejected" as const, label: "Rejected", color: "var(--dx-danger)", bg: "bg-dx-danger/10", border: "border-dx-danger/20" },
 ];
 
 const STATUS_MAP: Record<string, string> = {

@@ -3,7 +3,12 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getCompanyScope, customerScopeWhere } from "@/lib/company-scope";
 import { Header } from "@/components/layout/Header";
-import { formatCurrency, formatDate, dxStatusColor, statusLabel } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatDate,
+  dxStatusColor,
+  statusLabel,
+} from "@/lib/utils";
 import { Users, FileText, TrendingUp, Clock } from "lucide-react";
 import Link from "next/link";
 
@@ -50,38 +55,38 @@ export default async function DashboardPage() {
       title: "Total Customers",
       value: totalCustomers,
       icon: Users,
-      tint: "from-[#A855F7] to-[#6366F1]",
+      tint: "from-[#1D4ED8] to-[#2459B7]",
       href: "/customers",
     },
     {
       title: "Total Quotations",
       value: totalQuotations,
       icon: FileText,
-      tint: "from-[#0EA5E9] to-[#14B8A6]",
+      tint: "from-[#0369A1] to-[#075985]",
       href: "/quotations",
     },
     {
       title: "Accepted Value",
       value: formatCurrency(Number(totalRevenue)),
       icon: TrendingUp,
-      tint: "from-[#10B981] to-[#84CC16]",
+      tint: "from-[#15803D] to-[#166534]",
       href: quotationsHref("status=ACCEPTED"),
     },
     {
       title: "Pending (Draft + Sent)",
       value: pendingCount,
       icon: Clock,
-      tint: "from-[#F59E0B] to-[#F97316]",
+      tint: "from-[#B45309] to-[#92400E]",
       href: quotationsHref("status=DRAFT"),
     },
   ];
 
   // Build donut chart segments for status breakdown
   const statusSegments = [
-    { label: "Draft", count: draft?._count ?? 0, color: "#AEB9E1" },
-    { label: "Sent", count: sent?._count ?? 0, color: "#00C2FF" },
-    { label: "Accepted", count: accepted?._count ?? 0, color: "#14CA74" },
-    { label: "Rejected", count: rejected?._count ?? 0, color: "#FF5A65" },
+    { label: "Draft", count: draft?._count ?? 0, color: "var(--dx-ink-muted)" },
+    { label: "Sent", count: sent?._count ?? 0, color: "var(--dx-accent)" },
+    { label: "Accepted", count: accepted?._count ?? 0, color: "var(--dx-success)" },
+    { label: "Rejected", count: rejected?._count ?? 0, color: "var(--dx-danger)" },
   ];
   const total = statusSegments.reduce((s, i) => s + i.count, 0);
   const r = 36;
@@ -103,6 +108,22 @@ export default async function DashboardPage() {
       />
 
       <main className="flex-1 p-4 sm:p-6 space-y-6">
+        <section className="dx-card p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="font-semibold text-dx-ink">On site today?</h2>
+            <p className="text-sm text-dx-ink-muted mt-1">
+              Open a project or capture photos and voice notes.
+            </p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Link href="/projects" className="dx-btn-ghost min-h-11">
+              View projects
+            </Link>
+            <Link href="/site-visits/new" className="dx-btn-gradient min-h-11">
+              Capture update
+            </Link>
+          </div>
+        </section>
         {/* Stats grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => (
@@ -117,8 +138,12 @@ export default async function DashboardPage() {
                 <stat.icon className="w-5 h-5 text-white" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-dx-ink-muted truncate">{stat.title}</p>
-                <p className="text-xl font-semibold text-dx-ink mt-0.5">{stat.value}</p>
+                <p className="text-xs text-dx-ink-muted truncate">
+                  {stat.title}
+                </p>
+                <p className="text-xl font-semibold text-dx-ink mt-0.5">
+                  {stat.value}
+                </p>
               </div>
             </Link>
           ))}
@@ -128,14 +153,35 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Donut chart */}
           <div className="dx-card p-5">
-            <h2 className="text-sm font-semibold text-dx-ink mb-4">Quotation Status</h2>
+            <h2 className="text-sm font-semibold text-dx-ink mb-4">
+              Quotation Status
+            </h2>
 
             <div className="flex items-center justify-center mb-5">
               <div className="relative">
-                <svg width="96" height="96" viewBox="0 0 96 96" className="-rotate-90">
-                  <circle cx="48" cy="48" r={r} fill="none" stroke="#343B4F" strokeWidth="10" />
+                <svg
+                  width="96"
+                  height="96"
+                  viewBox="0 0 96 96"
+                  className="-rotate-90"
+                >
+                  <circle
+                    cx="48"
+                    cy="48"
+                    r={r}
+                    fill="none"
+                    stroke="var(--dx-line)"
+                    strokeWidth="10"
+                  />
                   {total === 0 ? (
-                    <circle cx="48" cy="48" r={r} fill="none" stroke="#343B4F" strokeWidth="10" />
+                    <circle
+                      cx="48"
+                      cy="48"
+                      r={r}
+                      fill="none"
+                      stroke="var(--dx-line)"
+                      strokeWidth="10"
+                    />
                   ) : (
                     segments.map((seg, i) =>
                       seg.count > 0 ? (
@@ -151,12 +197,14 @@ export default async function DashboardPage() {
                           strokeDashoffset={-seg.offset}
                           strokeLinecap="round"
                         />
-                      ) : null
+                      ) : null,
                     )
                   )}
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-bold text-dx-ink">{total}</span>
+                  <span className="text-2xl font-bold text-dx-ink">
+                    {total}
+                  </span>
                   <span className="text-xs text-dx-ink-faint">Total</span>
                 </div>
               </div>
@@ -169,12 +217,15 @@ export default async function DashboardPage() {
                     className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                     style={{ background: seg.color }}
                   />
-                  <span className="text-xs text-dx-ink-muted flex-1">{seg.label}</span>
+                  <span className="text-xs text-dx-ink-muted flex-1">
+                    {seg.label}
+                  </span>
                   <div className="flex-1 h-1.5 bg-dx-line rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
-                        width: total > 0 ? `${(seg.count / total) * 100}%` : "0%",
+                        width:
+                          total > 0 ? `${(seg.count / total) * 100}%` : "0%",
                         background: seg.color,
                       }}
                     />
@@ -190,8 +241,13 @@ export default async function DashboardPage() {
           {/* Recent quotations */}
           <div className="dx-card lg:col-span-2 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-dx-line">
-              <h2 className="text-sm font-semibold text-dx-ink">Recent Quotations</h2>
-              <Link href="/quotations" className="text-xs text-dx-accent hover:opacity-80 transition-opacity">
+              <h2 className="text-sm font-semibold text-dx-ink">
+                Recent Quotations
+              </h2>
+              <Link
+                href="/quotations"
+                className="text-xs text-dx-accent hover:opacity-80 transition-opacity"
+              >
                 View all
               </Link>
             </div>
@@ -199,7 +255,10 @@ export default async function DashboardPage() {
             {recentQuotations.length === 0 ? (
               <p className="text-sm text-dx-ink-muted text-center py-10">
                 No quotations yet.{" "}
-                <Link href="/quotations/new" className="text-dx-accent hover:opacity-80">
+                <Link
+                  href="/quotations/new"
+                  className="text-dx-accent hover:opacity-80"
+                >
                   Create one
                 </Link>
                 .
@@ -241,7 +300,9 @@ export default async function DashboardPage() {
 
         {/* Quick actions */}
         <div className="dx-card p-5">
-          <h2 className="text-sm font-semibold text-dx-ink mb-4">Quick Actions</h2>
+          <h2 className="text-sm font-semibold text-dx-ink mb-4">
+            Quick Actions
+          </h2>
           <div className="flex flex-wrap gap-3">
             <Link href="/quotations/new" className="dx-btn-gradient">
               + New Quotation

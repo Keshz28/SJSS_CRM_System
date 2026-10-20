@@ -1,3 +1,5 @@
+import { positiveInteger } from "@/lib/query-input";
+import { readJson } from "@/lib/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -10,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const limit = Math.min(parseInt(searchParams.get("limit") ?? "30"), 100);
+  const limit = positiveInteger(searchParams.get("limit"), 30, 100);
 
   const [notifications, unreadCount] = await Promise.all([
     prisma.notification.findMany({
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Administrators only" }, { status: 403 });
   }
 
-  const body = await req.json();
+  const body = await readJson(req);
   const parsed = sendSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

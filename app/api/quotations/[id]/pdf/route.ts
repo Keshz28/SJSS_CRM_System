@@ -3,15 +3,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { renderToBuffer } from "@react-pdf/renderer";
-import React from "react";
 import { QuotationPDF } from "@/lib/pdf-document";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: pendingParams }: { params: Promise<{ id: string }> },
 ) {
+  const params = await pendingParams;
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const quotation = await prisma.quotation.findUnique({
     where: { id: params.id },
@@ -23,7 +24,8 @@ export async function GET(
     },
   });
 
-  if (!quotation) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!quotation)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const data = {
     quotationNumber: quotation.quotationNumber,
@@ -61,7 +63,7 @@ export async function GET(
     createdBy: quotation.createdBy,
   };
 
-  const element = React.createElement(QuotationPDF, { data }) as React.ReactElement;
+  const element = QuotationPDF({ data });
   const buffer = await renderToBuffer(element);
   const uint8 = new Uint8Array(buffer);
 

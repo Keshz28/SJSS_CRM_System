@@ -1,283 +1,527 @@
 "use client";
-
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Camera, Save, X, ImagePlus, Video } from "lucide-react";
-
-interface Customer { id: string; name: string }
-interface Company { id: string; name: string; prefix: string }
-
+import { Save, WifiOff } from "lucide-react";
+import {
+  MediaComposer,
+  type StagedMedia,
+} from "@/components/media/MediaComposer";
+import { deleteDraft, readDraft, writeDraft } from "@/lib/capture-drafts";
+import { onDraftsCleared } from "@/lib/draft-revision";
+import { siteVisitDetailHref } from "@/lib/site-visit-navigation";
+interface ProjectOption {
+  id: string;
+  name: string;
+  companyId: string;
+  customerId: string | null;
+  location: string | null;
+}
 interface Props {
-  customers: Customer[];
-  companies: Company[];
-  /** Active global company scope; preselects the company on a new visit. */
+  customers: { id: string; name: string; companyId: string | null }[];
+  companies: { id: string; name: string; prefix: string }[];
+  projects: ProjectOption[];
+  ownerId: string;
   defaultCompanyId?: string;
+  defaultProjectId?: string;
+  returnTo?: string;
+  existingVisit?: {
+    id: string;
+    title: string;
+    companyId: string;
+    projectId: string | null;
+    customerId: string | null;
+    location: string | null;
+    notes: string | null;
+    contactName: string | null;
+    contactPhone: string | null;
+  };
 }
-
-const fieldCls =
-  "w-full bg-dx-surface border border-dx-line rounded-xl px-3 py-2.5 text-sm text-dx-ink placeholder-dx-ink-faint focus:outline-none focus:border-dx-accent transition-colors";
-const labelCls = "block text-sm font-medium text-dx-ink-muted mb-1.5";
-
-interface Shot {
-  file: File;
-  url: string;
+interface Draft {
+  requestId: string;
+  savedVisitId?: string;
+  companyId: string;
+  projectId: string;
+  mode: "new" | "existing";
+  customerId: string;
+  contactName: string;
+  contactPhone: string;
+  title: string;
+  location: string;
+  notes: string;
+  media: StagedMedia[];
 }
-
-export function SiteVisitCapture({ customers, companies, defaultCompanyId }: Props) {
+const field =
+  "mt-1.5 w-full bg-dx-surface border border-dx-line rounded-xl px-3 py-3 text-sm text-dx-ink focus:outline-none focus:border-dx-accent";
+const label = "block text-sm font-medium text-dx-ink-muted";
+export function SiteVisitCapture({
+  customers,
+  companies,
+  projects,
+  ownerId,
+  defaultCompanyId,
+  defaultProjectId,
+  existingVisit,
+  returnTo,
+}: Props) {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [companyId, setCompanyId] = useState(defaultCompanyId ?? companies[0]?.id ?? "");
-  const [mode, setMode] = useState<"new" | "existing">("new");
-  const [customerId, setCustomerId] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
-  const [title, setTitle] = useState("");
-  const [location, setLocation] = useState("");
-  const [notes, setNotes] = useState("");
-  const [shots, setShots] = useState<Shot[]>([]);
-
+  const initialProject = projects.find((p) => p.id === defaultProjectId);
+  const [draft, setDraft] = useState<Draft>(() => ({
+    requestId: "",
+    savedVisitId: existingVisit?.id,
+    companyId:
+      existingVisit?.companyId ||
+      initialProject?.companyId ||
+      defaultCompanyId ||
+      companies[0]?.id ||
+      "",
+    projectId: existingVisit?.projectId || initialProject?.id || "",
+    mode:
+      existingVisit?.customerId || initialProject?.customerId
+        ? "existing"
+        : "new",
+    customerId: existingVisit?.customerId || initialProject?.customerId || "",
+    contactName: existingVisit?.contactName || "",
+    contactPhone: existingVisit?.contactPhone || "",
+    title: existingVisit?.title || (initialProject ? "Site update" : ""),
+    location: existingVisit?.location || initialProject?.location || "",
+    notes: existingVisit?.notes || "",
+    media: [],
+  }));
+  const key = `capture:${ownerId}:${existingVisit?.id || defaultProjectId || (defaultCompanyId ? `general:${defaultCompanyId}` : "general")}`;
+  const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [progress, setProgress] = useState("");
+  const [recording, setRecording] = useState(false);
+  const [online, setOnline] = useState(true);
+  const [status, setStatus] = useState("Loading your draft…");
   const [error, setError] = useState("");
-
-  function handleAddPhotos(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    const next = files.map((file) => ({ file, url: URL.createObjectURL(file) }));
-    setShots((prev) => [...prev, ...next]);
-    e.target.value = "";
-  }
-
-  function removeShot(index: number) {
-    setShots((prev) => {
-      URL.revokeObjectURL(prev[index].url);
-      return prev.filter((_, i) => i !== index);
-    });
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!companyId) { setError("Please choose which company this visit is for."); return; }
-    if (!title.trim()) { setError("Please add a short title so you can find this later."); return; }
-    if (mode === "existing" && !customerId) { setError("Please pick the customer, or switch to New prospect."); return; }
-
-    setSaving(true);
-    setError("");
-
-    try {
-      setProgress("Saving visit…");
-      const res = await fetch("/api/site-visits", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyId,
-          title: title.trim(),
-          customerId: mode === "existing" ? customerId : null,
-          contactName: mode === "new" ? contactName.trim() : null,
-          contactPhone: mode === "new" ? contactPhone.trim() : null,
-          location: location.trim(),
-          notes: notes.trim(),
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error?.formErrors?.join(", ") || data.error || "Could not save the visit.");
-      }
-
-      const { id } = await res.json();
-
-      // Upload the photos one by one onto the new visit.
-      for (let i = 0; i < shots.length; i++) {
-        setProgress(`Uploading ${i + 1} of ${shots.length}…`);
-        const fd = new FormData();
-        fd.append("file", shots[i].file);
-        fd.append("siteVisitId", id);
-        const up = await fetch("/api/uploads", { method: "POST", body: fd });
-        if (!up.ok) {
-          const d = await up.json().catch(() => ({}));
-          throw new Error(d.error || `Photo ${i + 1} failed to upload.`);
+  const [storageWarning, setStorageWarning] = useState("");
+  const complete = useRef(false);
+  useEffect(() => onDraftsCleared(ownerId, () => { complete.current = true; window.location.reload(); }), [ownerId]);
+  const project = projects.find((p) => p.id === draft.projectId);
+  const back = existingVisit ? siteVisitDetailHref(existingVisit.id, returnTo) : returnTo || (project ? `/projects/${project.id}` : "/site-visits");
+  useEffect(() => {
+    let active = true;
+    readDraft<Draft>(key)
+      .then((saved) => {
+        if (active) {
+          setDraft(
+            (current) =>
+              saved || { ...current, requestId: crypto.randomUUID() },
+          );
+          setStatus(
+            saved
+              ? "Draft restored from this device"
+              : "Drafts save on this device",
+          );
         }
+      })
+      .catch(() => {
+        if (active) {
+          setDraft((current) => ({
+            ...current,
+            requestId: crypto.randomUUID(),
+          }));
+          setStorageWarning(
+            "Device storage is unavailable. Keep this page open until your update uploads.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [key]);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  useEffect(() => {
+    if (!loaded || complete.current) return;
+    setStatus("Saving draft…");
+    const timer = setTimeout(() => {
+      if (!complete.current)
+        writeDraft(key, draft)
+          .then(() => {
+            if (!complete.current) setStatus("Draft saved on this device");
+          })
+          .catch(() =>
+            setStorageWarning(
+              "Device storage is full or unavailable. Keep this page open and upload before leaving.",
+            ),
+          );
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [draft, key, loaded]);
+  function set<K extends keyof Draft>(key: K, value: Draft[K]) {
+    setDraft((d) => ({ ...d, [key]: value }));
+  }
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (!draft.companyId || !draft.title.trim()) {
+      setError("Choose a company and add an update title.");
+      return;
+    }
+    if (
+      draft.mode === "existing" &&
+      !draft.customerId &&
+      !project?.customerId
+    ) {
+      setError("Choose a customer or switch to a new prospect.");
+      return;
+    }
+    setSaving(true);
+    let current = draft;
+    async function persist(value: Draft) {
+      try {
+        await writeDraft(key, value);
+        setStorageWarning("");
+      } catch {
+        if (!navigator.onLine)
+          throw new Error(
+            "Device storage is unavailable and you are offline. Keep this page open until you can upload.",
+          );
+        setStorageWarning(
+          "Device storage is unavailable. Keep this page open while the upload completes.",
+        );
       }
-
-      router.push(`/site-visits/${id}`);
+    }
+    try {
+      await persist(current); // Finish persisting before any network work.
+      if (!navigator.onLine)
+        throw new Error(
+          "You are offline. Your draft is saved here. Tap Save update when your connection returns.",
+        );
+      if (!current.savedVisitId) {
+        setStatus("Saving update…");
+        const response = await fetch("/api/site-visits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientRequestId: current.requestId,
+            projectId: current.projectId || null,
+            companyId: current.companyId,
+            title: current.title.trim(),
+            customerId:
+              project?.customerId ||
+              (current.mode === "existing" ? current.customerId : null),
+            contactName: current.mode === "new" ? current.contactName : null,
+            contactPhone: current.mode === "new" ? current.contactPhone : null,
+            location: current.location,
+            notes: current.notes,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(
+            typeof data.error === "string"
+              ? data.error
+              : "Could not save the update. Check the details and retry.",
+          );
+        current = { ...current, savedVisitId: data.id };
+        setDraft(current);
+        await persist(current);
+      }
+      for (const item of current.media) {
+        if (item.uploaded) continue;
+        setStatus(
+          `Uploading ${current.media.filter((m) => m.uploaded).length + 1} of ${current.media.length}…`,
+        );
+        const form = new FormData();
+        form.set("siteVisitId", current.savedVisitId!);
+        form.set("clientUploadId", item.id);
+        form.set("caption", item.caption);
+        form.set(
+          "file",
+          new File([item.blob], item.name, { type: item.mimetype }),
+        );
+        const response = await fetch("/api/uploads", {
+          method: "POST",
+          body: form,
+        });
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(
+            data.error ||
+              "A file could not upload. Retry to continue the same update.",
+          );
+        current = {
+          ...current,
+          media: current.media.map((m) =>
+            m.id === item.id ? { ...m, uploaded: true } : m,
+          ),
+        };
+        setDraft(current);
+        await persist(current);
+      }
+      complete.current = true;
+      await deleteDraft(key).catch(() => {});
+      router.push(siteVisitDetailHref(current.savedVisitId!, returnTo));
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(
+        (err as Error).message ||
+          "Connection interrupted. Your draft is saved; retry to continue.",
+      );
+      setStatus("Needs retry · draft retained on this device");
       setSaving(false);
-      setProgress("");
     }
   }
-
+  async function discard() {
+    if (
+      !confirm(
+        "Discard this device's draft? Any already uploaded items will stay in the saved update.",
+      )
+    )
+      return;
+    complete.current = true;
+    await deleteDraft(key);
+    router.push(back);
+    router.refresh();
+  }
+  if (!loaded)
+    return (
+      <p className="text-dx-ink-muted" role="status">
+        Loading your draft…
+      </p>
+    );
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 max-w-2xl">
-      <div className="flex items-center gap-3">
-        <Link href="/site-visits" className="dx-btn-ghost p-2.5">
-          <ArrowLeft className="w-4 h-4" />
+    <form onSubmit={submit} className="space-y-5 max-w-3xl pb-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Link href={back} className="text-sm text-dx-accent">
+          ← Back{existingVisit ? " to site update" : ""}
         </Link>
-        <p className="text-sm text-dx-ink-muted">Capture a site visit, then turn it into a quote later.</p>
+        <p role="status" className="text-xs text-dx-ink-muted">
+          {!online && <WifiOff className="w-4 h-4 inline mr-1" />}
+          {status}
+        </p>
       </div>
-
-      {error && (
-        <div className="rounded-xl bg-[#FF5A65]/15 border border-[#FF5A65]/30 text-[#FF5A65] px-4 py-3 text-sm">
-          {error}
-        </div>
+      {storageWarning && (
+        <p role="alert" className="text-sm text-amber-400">
+          {storageWarning}
+        </p>
       )}
-
-      {/* Photos — the main event, kept at the top for on-site use */}
-      <div className="dx-card p-5">
-        <label className={labelCls}>Photos &amp; Videos</label>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*"
-          capture="environment"
-          multiple
-          className="hidden"
-          onChange={handleAddPhotos}
-        />
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-          {shots.map((shot, i) => {
-            const isVideo = shot.file.type.startsWith("video/");
-            return (
-            <div key={shot.url} className="relative aspect-square rounded-xl overflow-hidden border border-dx-line group bg-black/20">
-              {isVideo ? (
-                <video src={shot.url} muted playsInline className="w-full h-full object-cover" />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={shot.url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
-              )}
-              {isVideo && (
-                <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[10px] font-medium flex items-center gap-1">
-                  <Video className="w-3 h-3" /> Video
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => removeShot(i)}
-                className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="aspect-square rounded-xl border-2 border-dashed border-dx-line text-dx-ink-faint hover:border-dx-accent hover:text-dx-accent transition-colors flex flex-col items-center justify-center gap-1"
+      {error && (
+        <p
+          role="alert"
+          className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-400"
+        >
+          {error}
+        </p>
+      )}
+      {draft.savedVisitId && !existingVisit && (
+        <p className="text-sm text-dx-ink-muted">
+          Update saved. Retry will continue its remaining uploads without
+          creating another visit.{" "}
+          <Link
+            className="text-dx-accent underline"
+            href={siteVisitDetailHref(draft.savedVisitId, returnTo)}
           >
-            {shots.length === 0 ? <Camera className="w-6 h-6" /> : <ImagePlus className="w-6 h-6" />}
-            <span className="text-[11px] font-medium">{shots.length === 0 ? "Take / Add" : "Add more"}</span>
-          </button>
-        </div>
-        {shots.length > 0 && (
-          <p className="text-xs text-dx-ink-faint mt-2">{shots.length} item{shots.length !== 1 ? "s" : ""} ready</p>
-        )}
-      </div>
-
-      {/* Details */}
-      <div className="dx-card p-5 space-y-4">
-        <div>
-          <label className={labelCls}>Title <span className="text-[#FF5A65]">*</span></label>
-          <input
-            className={fieldCls}
-            placeholder="e.g. Shoplot renovation, Klang"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label className={labelCls}>Company <span className="text-[#FF5A65]">*</span></label>
-          <select className={fieldCls} value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+            View saved update
+          </Link>
+        </p>
+      )}
+      <fieldset
+        disabled={saving || Boolean(draft.savedVisitId)}
+        className="dx-card p-4 sm:p-5 space-y-4 disabled:opacity-70"
+      >
+        <label className={label}>
+          Project
+          <select
+            aria-label="Project"
+            className={field}
+            value={draft.projectId}
+            onChange={(e) => {
+              const p = projects.find((p) => p.id === e.target.value);
+              setDraft((d) => ({
+                ...d,
+                projectId: e.target.value,
+                companyId: p?.companyId || d.companyId,
+                customerId: p?.customerId || "",
+                mode: p?.customerId ? "existing" : "new",
+                contactName: "",
+                contactPhone: "",
+                location: p?.location || "",
+              }));
+            }}
+          >
+            <option value="">Standalone site visit</option>
+            {projects.filter((p) => p.companyId === draft.companyId).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
             ))}
           </select>
-        </div>
-
-        {/* Customer vs new prospect */}
-        <div>
-          <label className={labelCls}>Customer</label>
-          <div className="flex gap-2 mb-3">
-            <button
-              type="button"
-              onClick={() => setMode("new")}
-              className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium border transition-colors ${
-                mode === "new"
-                  ? "bg-dx-accent/15 border-dx-accent/40 text-dx-accent"
-                  : "border-dx-line text-dx-ink-muted hover:text-dx-ink"
-              }`}
+        </label>
+        <p className="text-xs text-dx-ink-faint">
+          Company:{" "}
+          {companies.find((c) => c.id === draft.companyId)?.name ||
+            "Choose a company"}
+        </p>
+        {!project && (
+          <Link
+            href="/projects/new"
+            className="text-xs text-dx-accent inline-block"
+          >
+            + Create a named project
+          </Link>
+        )}
+        <label className={label}>
+          Update title
+          <input
+            required
+            maxLength={160}
+            className={field}
+            placeholder="e.g. Kitchen measurements — first visit"
+            value={draft.title}
+            onChange={(e) => set("title", e.target.value)}
+          />
+        </label>
+      </fieldset>
+      <MediaComposer
+        media={draft.media}
+        onChange={(media) => set("media", media)}
+        onRecordingChange={setRecording}
+        disabled={saving}
+      />
+      <details className="dx-card p-4 sm:p-5">
+        <summary className="cursor-pointer min-h-11 text-sm font-medium text-dx-ink-muted">
+          Customer, site address & notes
+        </summary>
+        <fieldset
+          disabled={saving || Boolean(draft.savedVisitId)}
+          className="space-y-4 pt-3"
+        >
+          <label className={label}>
+            Company
+            <select
+              aria-label="Company"
+              disabled={Boolean(project || defaultCompanyId)}
+              className={field}
+              value={draft.companyId}
+              onChange={(e) => setDraft((d) => ({ ...d, companyId: e.target.value, customerId: "", projectId: "" }))}
             >
-              New prospect
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("existing")}
-              className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium border transition-colors ${
-                mode === "existing"
-                  ? "bg-dx-accent/15 border-dx-accent/40 text-dx-accent"
-                  : "border-dx-line text-dx-ink-muted hover:text-dx-ink"
-              }`}
-            >
-              Existing customer
-            </button>
-          </div>
-
-          {mode === "existing" ? (
-            <select className={fieldCls} value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-              <option value="">Select a customer…</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
             </select>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <input
-                className={fieldCls}
-                placeholder="Contact name"
-                value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
-              />
-              <input
-                className={fieldCls}
-                placeholder="Phone (+60…)"
-                value={contactPhone}
-                onChange={(e) => setContactPhone(e.target.value)}
-              />
+          </label>
+          {!project?.customerId && (
+            <div>
+              <span className={label}>Customer</span>
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  aria-pressed={draft.mode === "new"}
+                  onClick={() => set("mode", "new")}
+                  className={`dx-btn-ghost flex-1 min-h-11 ${draft.mode === "new" ? "border-dx-accent text-dx-accent" : ""}`}
+                >
+                  New prospect
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={draft.mode === "existing"}
+                  onClick={() => set("mode", "existing")}
+                  className={`dx-btn-ghost flex-1 min-h-11 ${draft.mode === "existing" ? "border-dx-accent text-dx-accent" : ""}`}
+                >
+                  Existing customer
+                </button>
+              </div>
+              {draft.mode === "existing" ? (
+                <label className={label}>
+                  <span className="sr-only">Select customer</span>
+                  <select
+                    aria-label="Select customer"
+                    className={field}
+                    value={draft.customerId}
+                    onChange={(e) => set("customerId", e.target.value)}
+                  >
+                    <option value="">Select a customer…</option>
+                    {customers.filter((c) => c.companyId === draft.companyId).map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-3 mt-3">
+                  <label className={label}>
+                    Contact name
+                    <input
+                      className={field}
+                      value={draft.contactName}
+                      onChange={(e) => set("contactName", e.target.value)}
+                    />
+                  </label>
+                  <label className={label}>
+                    Phone
+                    <input
+                      type="tel"
+                      className={field}
+                      value={draft.contactPhone}
+                      onChange={(e) => set("contactPhone", e.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
             </div>
           )}
-        </div>
-
-        <div>
-          <label className={labelCls}>Location</label>
-          <input
-            className={fieldCls}
-            placeholder="Site address or area"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label className={labelCls}>Notes</label>
-          <textarea
-            className={`${fieldCls} min-h-[140px] resize-y`}
-            placeholder="Everything you'd normally type into WhatsApp — measurements, what the customer wants, materials, anything for the quote…"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <button type="submit" disabled={saving} className="dx-btn-gradient disabled:opacity-50">
+          <label className={label}>
+            Site address
+            <input
+              className={field}
+              maxLength={500}
+              value={draft.location}
+              onChange={(e) => set("location", e.target.value)}
+            />
+          </label>
+          <label className={label}>
+            Update notes
+            <textarea
+              className={field}
+              maxLength={5000}
+              value={draft.notes}
+              onChange={(e) => set("notes", e.target.value)}
+              rows={3}
+              placeholder="Measurements, progress, materials or work to follow up…"
+            />
+          </label>
+        </fieldset>
+      </details>
+      <div className="sticky bottom-20 lg:bottom-0 z-10 rounded-xl border border-dx-line bg-dx-bg/95 backdrop-blur p-3 flex items-center gap-3 flex-wrap">
+        <button
+          type="submit"
+          disabled={saving || recording}
+          className="dx-btn-gradient min-h-11"
+        >
           <Save className="w-4 h-4" />
-          {saving ? (progress || "Saving…") : "Save Visit"}
+          {saving ? "Uploading…" : "Save update"}
         </button>
-        <Link href="/site-visits" className="dx-btn-ghost">Cancel</Link>
+        <button
+          type="button"
+          disabled={saving || recording}
+          className="dx-btn-ghost min-h-11"
+          onClick={discard}
+        >
+          Discard draft
+        </button>
+        {recording && (
+          <span className="text-xs text-dx-ink-muted">
+            Stop recording before saving.
+          </span>
+        )}
       </div>
     </form>
   );
