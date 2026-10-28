@@ -31,16 +31,16 @@ changed as part of the review.
 
 **What already exists**
 
-| Area | Current implementation |
-| --- | --- |
-| Customers | Contact details, notes, search, archive, quotation history |
-| Quotations | Line items, totals, status changes, import, PDF route, company numbering |
-| Sales board | Draft, sent, accepted and rejected quotations in a board view |
-| Site visits | Title, company/customer, location, notes, photo/video attachments, conversion to a quotation |
-| Administration | Create users, change roles, reset passwords, deactivate/delete accounts |
-| Communication | Admin broadcasts/private notifications, inbox and replies, notification bell |
-| Reporting | Quotation analytics and report export route |
-| Layout | Desktop sidebar, mobile navigation drawer, company filter, light/dark theme |
+| Area           | Current implementation                                                                       |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| Customers      | Contact details, notes, search, archive, quotation history                                   |
+| Quotations     | Line items, totals, status changes, import, PDF route, company numbering                     |
+| Sales board    | Draft, sent, accepted and rejected quotations in a board view                                |
+| Site visits    | Title, company/customer, location, notes, photo/video attachments, conversion to a quotation |
+| Administration | Create users, change roles, reset passwords, deactivate/delete accounts                      |
+| Communication  | Admin broadcasts/private notifications, inbox and replies, notification bell                 |
+| Reporting      | Quotation analytics and report export route                                                  |
+| Layout         | Desktop sidebar, mobile navigation drawer, company filter, light/dark theme                  |
 
 Existence does not mean every path works: PDF export and account deactivation have
 confirmed failures below. AI extraction and real phone video capture were not
@@ -48,15 +48,15 @@ validated end to end.
 
 **Confirmed findings from localhost**
 
-| Priority | Finding | Evidence and impact |
-| --- | --- | --- |
-| Before staff use | Deactivated accounts can sign in | Created a temporary user, deactivated it through the admin API, then successfully authenticated it. `lib/auth.ts:25` checks for a user but never checks `isActive`. Role is also copied into the JWT at sign-in without a later database refresh; session revocation needs design work. |
-| Before uploading business media | Uploaded photos are public by URL | An unauthenticated request fetched the uploaded test PNG with HTTP 200. API endpoints themselves correctly returned 401 anonymously. `app/api/uploads/route.ts:63` saves into `public/uploads`, which bypasses authenticated download access. |
-| High | Default company blocks visit creation | Under the global "All companies" filter, the form displays the first company, but Save Visit says to choose a company. `components/site-visits/SiteVisitCapture.tsx:31` keeps the empty `defaultCompanyId` because `??` does not fall back for an empty string. Explicitly selecting a company allowed the save. |
-| High | Failed-upload retries create duplicate visits | Simulated an interrupted upload. The visit was already saved; pressing Save Visit again created a second visit. `components/site-visits/SiteVisitCapture.tsx:70` creates the visit on each submission before uploading. Resume against the same saved record, with duplicate-safe requests. |
-| High | Quotation PDF export fails locally | Export of a quotation created through visit conversion returned HTTP 500. The server logged "Unknown font format". Inspect external font registration in `lib/pdf-document.tsx:12` and bundle verified font files or use a supported built-in font. |
-| High for field use | Unfinished captures are lost on refresh | Filled a title and selected a photo, then reloaded. Both disappeared. Drafts exist only in component memory; there is no persistent draft or upload queue. |
-| Mobile usability | Media controls depend on hover | In a touch-emulated phone viewport, delete/download overlay controls had opacity 0 and measured 24 × 24 pixels. Use visible, labelled controls with comfortable touch targets. See `components/site-visits/SiteVisitDetail.tsx:230`. |
+| Priority                        | Finding                                       | Evidence and impact                                                                                                                                                                                                                                                                                              |
+| ------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before staff use                | Deactivated accounts can sign in              | Created a temporary user, deactivated it through the admin API, then successfully authenticated it. `lib/auth.ts:25` checks for a user but never checks `isActive`. Role is also copied into the JWT at sign-in without a later database refresh; session revocation needs design work.                          |
+| Before uploading business media | Uploaded photos are public by URL             | An unauthenticated request fetched the uploaded test PNG with HTTP 200. API endpoints themselves correctly returned 401 anonymously. `app/api/uploads/route.ts:63` saves into `public/uploads`, which bypasses authenticated download access.                                                                    |
+| High                            | Default company blocks visit creation         | Under the global "All companies" filter, the form displays the first company, but Save Visit says to choose a company. `components/site-visits/SiteVisitCapture.tsx:31` keeps the empty `defaultCompanyId` because `??` does not fall back for an empty string. Explicitly selecting a company allowed the save. |
+| High                            | Failed-upload retries create duplicate visits | Simulated an interrupted upload. The visit was already saved; pressing Save Visit again created a second visit. `components/site-visits/SiteVisitCapture.tsx:70` creates the visit on each submission before uploading. Resume against the same saved record, with duplicate-safe requests.                      |
+| High                            | Quotation PDF export fails locally            | Export of a quotation created through visit conversion returned HTTP 500. The server logged "Unknown font format". Inspect external font registration in `lib/pdf-document.tsx:12` and bundle verified font files or use a supported built-in font.                                                              |
+| High for field use              | Unfinished captures are lost on refresh       | Filled a title and selected a photo, then reloaded. Both disappeared. Drafts exist only in component memory; there is no persistent draft or upload queue.                                                                                                                                                       |
+| Mobile usability                | Media controls depend on hover                | In a touch-emulated phone viewport, delete/download overlay controls had opacity 0 and measured 24 × 24 pixels. Use visible, labelled controls with comfortable touch targets. See `components/site-visits/SiteVisitDetail.tsx:230`.                                                                             |
 
 **Structural gaps found in the code**
 
@@ -111,14 +111,14 @@ NextAuth sessions do not automatically become Supabase Auth sessions.
 
 **Recommended product structure**
 
-| Record | Responsibility |
-| --- | --- |
-| Customer | Who the work is for, contacts, relationship history |
-| Project | Named job, site address, company, customer, assigned team, stage and dates |
-| Site visit/update | A dated entry within the project with author, notes and media |
-| Media item | Photo/video/audio with caption, capture/upload timestamps and optional area/stage tags |
-| Quotation | Commercial proposal linked to the project; allow multiple proposals/revisions |
-| Task | Assigned action, due date, completion and related project or sales follow-up |
+| Record            | Responsibility                                                                         |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| Customer          | Who the work is for, contacts, relationship history                                    |
+| Project           | Named job, site address, company, customer, assigned team, stage and dates             |
+| Site visit/update | A dated entry within the project with author, notes and media                          |
+| Media item        | Photo/video/audio with caption, capture/upload timestamps and optional area/stage tags |
+| Quotation         | Commercial proposal linked to the project; allow multiple proposals/revisions          |
+| Task              | Assigned action, due date, completion and related project or sales follow-up           |
 
 A project should be creatable during an inquiry or first survey, before a quote
 is accepted. Keep sales stages separate from delivery stages such as Planned,
