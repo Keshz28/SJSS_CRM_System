@@ -1,14 +1,19 @@
 import { prisma } from "@/lib/prisma";
 import { getCompanies } from "@/lib/companies";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { Header } from "@/components/layout/Header";
 import { QuotationForm } from "@/components/quotations/QuotationForm";
 
 export default async function EditQuotationPage({
-  params,
+  params: pendingParams,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const params = await pendingParams;
+  const session = await getServerSession(authOptions);
+  if (!session) redirect("/login");
   const [quotation, customers, companies] = await Promise.all([
     prisma.quotation.findUnique({
       where: { id: params.id },
@@ -17,16 +22,20 @@ export default async function EditQuotationPage({
     prisma.customer.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, contactPerson: true },
+      select: { id: true, name: true, contactPerson: true, companyId: true },
     }),
     getCompanies(),
   ]);
 
   if (!quotation) notFound();
+  if (quotation.createdById !== session.user.id && session.user.role !== "ADMIN") redirect(`/quotations/${quotation.id}`);
 
   return (
     <div className="flex flex-col flex-1">
-      <Header title={`Edit ${quotation.quotationNumber}`} subtitle="Update quotation details" />
+      <Header
+        title={`Edit ${quotation.quotationNumber}`}
+        subtitle="Update quotation details"
+      />
       <main className="flex-1 p-4 sm:p-6">
         <QuotationForm
           customers={customers}

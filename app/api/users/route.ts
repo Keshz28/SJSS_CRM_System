@@ -1,14 +1,17 @@
+import { readJson } from "@/lib/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { passwordSchema } from "@/lib/password-policy";
+import { Prisma } from "@prisma/client";
 
 const createSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  name: z.string().trim().min(1, "Name is required").max(200),
+  email: z.string().trim().email("Enter a valid email").max(254),
+  password: passwordSchema,
   role: z.enum(["ADMIN", "USER"]).default("USER"),
 });
 
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Administrators only" }, { status: 403 });
   }
 
-  const body = await req.json();
+  const body = await readJson(req);
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -59,6 +62,7 @@ export async function POST(req: NextRequest) {
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  try {
   const user = await prisma.user.create({
     data: {
       name: parsed.data.name,
@@ -70,4 +74,9 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(user, { status: 201 });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")
+      return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
+    throw error;
+  }
 }

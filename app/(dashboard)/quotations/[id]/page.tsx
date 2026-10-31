@@ -4,10 +4,11 @@ import { Header } from "@/components/layout/Header";
 import { QuotationDetail } from "@/components/quotations/QuotationDetail";
 
 export default async function QuotationDetailPage({
-  params,
+  params: pendingParams,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const params = await pendingParams;
   const quotation = await prisma.quotation.findUnique({
     where: { id: params.id },
     include: {

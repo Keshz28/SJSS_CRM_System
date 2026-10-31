@@ -47,7 +47,7 @@ export function Header({ title, subtitle }: HeaderProps) {
           <ThemeToggle />
           <NotificationBell />
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-dx-accent to-dx-accent-2 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-dx-action to-dx-action-2 flex items-center justify-center">
               <span className="text-white text-xs font-semibold">{initials}</span>
             </div>
             <div className="hidden sm:block">

@@ -8,12 +8,12 @@ import {
 } from "@react-pdf/renderer";
 import type { PeriodBucket } from "@/lib/report-periods";
 
-const PRIMARY = "#5B8FF9";
-const DARK = "#26264F";
-const MUTED = "#8B8BAE";
+const PRIMARY = "#1D4ED8";
+const DARK = "#172B4D";
+const MUTED = "#586B84";
 const BORDER = "#E5E7EB";
 const BG_LIGHT = "#F8F9FC";
-const ACCENT = "#CB3CFF";
+const ACCENT = "#2459B7";
 
 const styles = StyleSheet.create({
   page: {
@@ -127,7 +127,7 @@ export interface ReportsPDFData {
   draftCount: number;
   sentCount: number;
   periodData: PeriodBucket[];
-  topCustomers: { name: string; total: number; count: number }[];
+  topCustomers: { id: string; name: string; companyName: string; total: number; count: number }[];
 }
 
 export function ReportsPDF({ data }: { data: ReportsPDFData }) {
@@ -168,10 +168,11 @@ export function ReportsPDF({ data }: { data: ReportsPDFData }) {
           </View>
         </View>
 
+        <Text style={styles.companyMeta}>Summary totals cover all time. Charts use Malaysia time and show the last {data.periodLabel === "Yearly" ? "5 years" : data.periodLabel === "Weekly" ? "12 weeks" : "12 months"}. Accepted quotation values are not payments received.</Text>
         {/* Stat cards */}
         <View style={styles.statRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>TOTAL REVENUE (ACCEPTED)</Text>
+            <Text style={styles.statLabel}>ACCEPTED QUOTATION VALUE</Text>
             <Text style={styles.statValue}>{formatMYR(data.totalRevenue)}</Text>
           </View>
           <View style={styles.statCard}>
@@ -193,7 +194,7 @@ export function ReportsPDF({ data }: { data: ReportsPDFData }) {
         <View>
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderText, { flex: 1.4 }]}>Period</Text>
-            <Text style={[styles.tableHeaderText, { flex: 3 }]}>Revenue (Accepted)</Text>
+            <Text style={[styles.tableHeaderText, { flex: 3 }]}>Accepted Value</Text>
             <Text style={[styles.tableHeaderText, { flex: 1.6, textAlign: "right" }]}>Amount</Text>
             <Text style={[styles.tableHeaderText, { flex: 0.8, textAlign: "right" }]}>Quotes</Text>
           </View>
@@ -241,13 +242,13 @@ export function ReportsPDF({ data }: { data: ReportsPDFData }) {
         </View>
 
         {/* Top customers */}
-        <Text style={styles.sectionTitle}>Top Customers by Revenue</Text>
+        <Text style={styles.sectionTitle}>Top Customers by Accepted Value</Text>
         <View>
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderText, { flex: 0.5 }]}>#</Text>
             <Text style={[styles.tableHeaderText, { flex: 4 }]}>Customer</Text>
             <Text style={[styles.tableHeaderText, { flex: 1, textAlign: "right" }]}>Quotes</Text>
-            <Text style={[styles.tableHeaderText, { flex: 2, textAlign: "right" }]}>Revenue</Text>
+            <Text style={[styles.tableHeaderText, { flex: 2, textAlign: "right" }]}>Accepted Value</Text>
           </View>
           {data.topCustomers.length === 0 ? (
             <View style={styles.tableRow}>
@@ -255,9 +256,9 @@ export function ReportsPDF({ data }: { data: ReportsPDFData }) {
             </View>
           ) : (
             data.topCustomers.map((c, idx) => (
-              <View key={c.name + idx} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+              <View key={c.id} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
                 <Text style={[styles.cell, { flex: 0.5 }]}>{idx + 1}</Text>
-                <Text style={[styles.cell, { flex: 4 }]}>{c.name}</Text>
+                <Text style={[styles.cell, { flex: 4 }]}>{c.name}{data.company.name === "All companies" ? ` (${c.companyName})` : ""}</Text>
                 <Text style={[styles.cell, { flex: 1, textAlign: "right" }]}>{c.count}</Text>
                 <Text style={[styles.cell, { flex: 2, textAlign: "right" }]}>{formatMYR(c.total)}</Text>
               </View>

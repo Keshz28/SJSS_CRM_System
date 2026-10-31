@@ -1,17 +1,19 @@
+import { positiveInteger, quotationStatus } from "@/lib/query-input";
 import { prisma } from "@/lib/prisma";
 import { getCompanyScope } from "@/lib/company-scope";
 import { Header } from "@/components/layout/Header";
 import { QuotationList } from "@/components/quotations/QuotationList";
 
 export default async function QuotationsPage({
-  searchParams,
+  searchParams: pendingSearchParams,
 }: {
-  searchParams: { search?: string; status?: string; page?: string };
+  searchParams: Promise<{ search?: string; status?: string; page?: string }>;
 }) {
+  const searchParams = await pendingSearchParams;
   const search = searchParams.search ?? "";
-  const status = searchParams.status ?? "";
+  const status = quotationStatus(searchParams.status) || "";
   const { companyId: company, companies } = await getCompanyScope();
-  const page = parseInt(searchParams.page ?? "1");
+  const page = positiveInteger(searchParams.page, 1);
   const limit = 20;
   const skip = (page - 1) * limit;
 
@@ -46,7 +48,10 @@ export default async function QuotationsPage({
 
   return (
     <div className="flex flex-col flex-1">
-      <Header title="Quotations" subtitle={`${total} quotation${total !== 1 ? "s" : ""} total`} />
+      <Header
+        title="Quotations"
+        subtitle={`${total} quotation${total !== 1 ? "s" : ""} total`}
+      />
       <main className="flex-1 p-4 sm:p-6">
         <QuotationList
           quotations={quotations}

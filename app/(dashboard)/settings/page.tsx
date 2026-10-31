@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { CompanySettings } from "@/components/settings/CompanySettings";
+import { DevicePrivacy } from "@/components/settings/DevicePrivacy";
 
 export default async function SettingsPage() {
   const companies = await prisma.company.findMany({
@@ -12,6 +13,7 @@ export default async function SettingsPage() {
       <Header title="Settings" subtitle="Manage your companies and their quotation details" />
       <main className="flex-1 p-4 sm:p-6">
         <CompanySettings companies={companies} />
+        <DevicePrivacy />
       </main>
     </div>
   );

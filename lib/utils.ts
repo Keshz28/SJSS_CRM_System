@@ -37,19 +37,19 @@ export function statusColor(status: string) {
   }
 }
 
-// Dark-theme-safe status badge classes (Dashdark X palette)
+// Status colours remain legible in both light and dark mode.
 export function dxStatusColor(status: string) {
   switch (status) {
     case "DRAFT":
-      return "bg-white/10 text-[#AEB9E1]";
+      return "bg-dx-line/30 text-dx-ink-muted";
     case "SENT":
-      return "bg-[#00C2FF]/15 text-[#00C2FF]";
+      return "bg-dx-accent/10 text-dx-accent";
     case "ACCEPTED":
-      return "bg-[#14CA74]/15 text-[#14CA74]";
+      return "bg-dx-success/10 text-dx-success";
     case "REJECTED":
-      return "bg-[#FF5A65]/15 text-[#FF5A65]";
+      return "bg-dx-danger/10 text-dx-danger";
     default:
-      return "bg-white/10 text-[#AEB9E1]";
+      return "bg-dx-line/30 text-dx-ink-muted";
   }
 }
 

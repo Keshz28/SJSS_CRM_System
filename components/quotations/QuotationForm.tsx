@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useCompanyScope } from "@/components/layout/CompanyScopeProvider";
 import { formatCurrency } from "@/lib/utils";
+import { previewLineTotal, previewQuotationTotal } from "@/lib/quotation-preview";
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 
 interface LineItem {
@@ -14,7 +16,7 @@ interface LineItem {
   order: number;
 }
 
-interface Customer { id: string; name: string; contactPerson: string | null }
+interface Customer { id: string; name: string; contactPerson: string | null; companyId: string | null }
 interface Company { id: string; name: string; prefix: string }
 
 interface QuotationFormData {
@@ -49,14 +51,21 @@ const labelCls = "block text-sm font-medium text-dx-ink-muted mb-1.5";
 
 export function QuotationForm({ customers, companies, defaultCompanyId, defaultValues, preselectedCustomerId }: Props) {
   const router = useRouter();
+  const { companyId: selectedCompanyId } = useCompanyScope();
   const isEdit = !!defaultValues?.id;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const [companyId, setCompanyId] = useState(
-    defaultValues?.companyId ?? defaultCompanyId ?? companies[0]?.id ?? ""
+    defaultValues?.companyId || defaultCompanyId || customers.find((c) => c.id === preselectedCustomerId)?.companyId || companies[0]?.id || ""
   );
   const [customerId, setCustomerId] = useState(defaultValues?.customerId ?? preselectedCustomerId ?? "");
+  useEffect(() => {
+    if (!isEdit && selectedCompanyId) {
+      setCompanyId(selectedCompanyId);
+      setCustomerId((current) => customers.some((c) => c.id === current && c.companyId === selectedCompanyId) ? current : "");
+    }
+  }, [selectedCompanyId, isEdit, customers]);
   const [subject, setSubject] = useState(defaultValues?.subject ?? "");
   const [notes, setNotes] = useState(defaultValues?.notes ?? "");
   const [terms, setTerms] = useState(defaultValues?.terms ?? DEFAULT_TERMS);
@@ -79,7 +88,7 @@ export function QuotationForm({ customers, companies, defaultCompanyId, defaultV
     setItems((prev) => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
   }
 
-  const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const totalAmount = previewQuotationTotal(items);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -96,7 +105,7 @@ export function QuotationForm({ customers, companies, defaultCompanyId, defaultV
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         companyId, customerId, subject, notes, terms,
-        validUntil: validUntil || null,
+        validUntil: validUntil || undefined,
         items: items.map((item, i) => ({
           description: item.description,
           quantity: Number(item.quantity),
@@ -140,7 +149,7 @@ export function QuotationForm({ customers, companies, defaultCompanyId, defaultV
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 <label className={labelCls}>Company <span className="text-dx-danger">*</span></label>
-                <select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className={fieldCls} required disabled={isEdit}>
+                <select aria-label="Company" value={companyId} onChange={(e) => { setCompanyId(e.target.value); setCustomerId(""); }} className={fieldCls} required disabled={isEdit || Boolean(selectedCompanyId)}>
                   <option value="">Select a company…</option>
                   {companies.map((co) => <option key={co.id} value={co.id}>{co.name}</option>)}
                 </select>
@@ -150,9 +159,9 @@ export function QuotationForm({ customers, companies, defaultCompanyId, defaultV
               </div>
               <div className="sm:col-span-2">
                 <label className={labelCls}>Customer <span className="text-dx-danger">*</span></label>
-                <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={fieldCls} required>
+                <select aria-label="Customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={fieldCls} required>
                   <option value="">Select a customer…</option>
-                  {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.contactPerson ? ` — ${c.contactPerson}` : ""}</option>)}
+                  {customers.filter((c) => c.companyId === companyId).map((c) => <option key={c.id} value={c.id}>{c.name}{c.contactPerson ? ` — ${c.contactPerson}` : ""}</option>)}
                 </select>
               </div>
               <div className="sm:col-span-2">
@@ -189,7 +198,7 @@ export function QuotationForm({ customers, companies, defaultCompanyId, defaultV
                     <input type="number" value={item.unitPrice} onChange={(e) => updateItem(index, "unitPrice", parseFloat(e.target.value) || 0)} min="0" step="0.01" className={fieldCls + " text-sm text-right"} placeholder="Price" />
                   </div>
                   <div className="col-span-3 sm:col-span-1 text-right text-sm font-semibold text-dx-ink">
-                    {formatCurrency(item.quantity * item.unitPrice)}
+                    {formatCurrency(previewLineTotal(item.quantity, item.unitPrice))}
                   </div>
                   <div className="col-span-1 flex justify-end">
                     <button type="button" onClick={() => removeItem(index)} disabled={items.length === 1} className="p-1.5 rounded-lg hover:bg-dx-danger/10 text-dx-ink-faint hover:text-dx-danger disabled:opacity-30 disabled:cursor-not-allowed transition-colors">

@@ -1,30 +1,7 @@
 import React from "react";
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet,
-  Font,
-} from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
-Font.register({
-  family: "Inter",
-  fonts: [
-    {
-      src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff",
-      fontWeight: 400,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hiJ-Ek-_EeA.woff",
-      fontWeight: 600,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hiJ-Ek-_EeA.woff",
-      fontWeight: 700,
-    },
-  ],
-});
+// Built-in fonts keep PDF export independent of external font URLs.
 
 const PRIMARY = "#5B8FF9";
 const DARK = "#26264F";
@@ -34,7 +11,7 @@ const BG_LIGHT = "#F8F9FC";
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 9,
     color: DARK,
     paddingTop: 40,
@@ -295,7 +272,9 @@ export function QuotationPDF({ data }: { data: QuotationData }) {
               <Text style={styles.companyTagline}>{data.company.tagline}</Text>
             ) : null}
             {data.company.registrationNo ? (
-              <Text style={styles.companyMeta}>Reg. No: {data.company.registrationNo}</Text>
+              <Text style={styles.companyMeta}>
+                Reg. No: {data.company.registrationNo}
+              </Text>
             ) : null}
             {data.company.address ? (
               <Text style={styles.companyMeta}>{data.company.address}</Text>
@@ -303,9 +282,11 @@ export function QuotationPDF({ data }: { data: QuotationData }) {
             {data.company.city ? (
               <Text style={styles.companyMeta}>{data.company.city}</Text>
             ) : null}
-            {(data.company.phone || data.company.email) ? (
+            {data.company.phone || data.company.email ? (
               <Text style={styles.companyMeta}>
-                {[data.company.phone, data.company.email].filter(Boolean).join("  •  ")}
+                {[data.company.phone, data.company.email]
+                  .filter(Boolean)
+                  .join("  •  ")}
               </Text>
             ) : null}
             {data.company.website ? (
@@ -325,7 +306,9 @@ export function QuotationPDF({ data }: { data: QuotationData }) {
             <Text style={styles.infoLabel}>Bill To</Text>
             <Text style={styles.infoBold}>{data.customer.name}</Text>
             {data.customer.contactPerson && (
-              <Text style={styles.infoValue}>{data.customer.contactPerson}</Text>
+              <Text style={styles.infoValue}>
+                {data.customer.contactPerson}
+              </Text>
             )}
             {data.customer.address && (
               <Text style={styles.infoValue}>{data.customer.address}</Text>
@@ -346,19 +329,28 @@ export function QuotationPDF({ data }: { data: QuotationData }) {
               {data.subject && (
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={styles.infoLabel}>Subject</Text>
-                  <Text style={[styles.infoValue, { fontWeight: 600, textAlign: "right" }]}>
+                  <Text
+                    style={[
+                      styles.infoValue,
+                      { fontWeight: 600, textAlign: "right" },
+                    ]}
+                  >
                     {data.subject}
                   </Text>
                 </View>
               )}
               <View style={{ alignItems: "flex-end" }}>
                 <Text style={styles.infoLabel}>Date</Text>
-                <Text style={styles.infoValue}>{formatDate(data.createdAt)}</Text>
+                <Text style={styles.infoValue}>
+                  {formatDate(data.createdAt)}
+                </Text>
               </View>
               {data.validUntil && (
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={styles.infoLabel}>Valid Until</Text>
-                  <Text style={styles.infoValue}>{formatDate(data.validUntil)}</Text>
+                  <Text style={styles.infoValue}>
+                    {formatDate(data.validUntil)}
+                  </Text>
                 </View>
               )}
               <View style={{ alignItems: "flex-end" }}>
@@ -372,10 +364,16 @@ export function QuotationPDF({ data }: { data: QuotationData }) {
         {/* Items table */}
         <View style={styles.table}>
           <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderText, styles.colDescription]}>Description</Text>
+            <Text style={[styles.tableHeaderText, styles.colDescription]}>
+              Description
+            </Text>
             <Text style={[styles.tableHeaderText, styles.colQty]}>Qty</Text>
-            <Text style={[styles.tableHeaderText, styles.colPrice]}>Unit Price</Text>
-            <Text style={[styles.tableHeaderText, styles.colTotal]}>Amount</Text>
+            <Text style={[styles.tableHeaderText, styles.colPrice]}>
+              Unit Price
+            </Text>
+            <Text style={[styles.tableHeaderText, styles.colTotal]}>
+              Amount
+            </Text>
           </View>
           {data.items.map((item, idx) => (
             <View
@@ -383,9 +381,15 @@ export function QuotationPDF({ data }: { data: QuotationData }) {
               style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}
             >
               <Text style={[styles.colDescription]}>{item.description}</Text>
-              <Text style={[styles.colQty]}>{Number(item.quantity).toFixed(2)}</Text>
-              <Text style={[styles.colPrice]}>{formatMYR(Number(item.unitPrice))}</Text>
-              <Text style={[styles.colTotal]}>{formatMYR(Number(item.total))}</Text>
+              <Text style={[styles.colQty]}>
+                {Number(item.quantity).toFixed(2)}
+              </Text>
+              <Text style={[styles.colPrice]}>
+                {formatMYR(Number(item.unitPrice))}
+              </Text>
+              <Text style={[styles.colTotal]}>
+                {formatMYR(Number(item.total))}
+              </Text>
             </View>
           ))}
         </View>
@@ -395,7 +399,9 @@ export function QuotationPDF({ data }: { data: QuotationData }) {
           <View style={styles.totalsBox}>
             <View style={[styles.totalRow, { borderTopWidth: 0 }]}>
               <Text style={styles.grandTotalLabel}>TOTAL</Text>
-              <Text style={styles.grandTotalValue}>{formatMYR(Number(data.totalAmount))}</Text>
+              <Text style={styles.grandTotalValue}>
+                {formatMYR(Number(data.totalAmount))}
+              </Text>
             </View>
           </View>
         </View>
@@ -411,7 +417,9 @@ export function QuotationPDF({ data }: { data: QuotationData }) {
         {/* Terms */}
         {data.terms && (
           <View style={styles.termsSection}>
-            <Text style={[styles.notesLabel, { marginBottom: 4 }]}>Terms & Conditions</Text>
+            <Text style={[styles.notesLabel, { marginBottom: 4 }]}>
+              Terms & Conditions
+            </Text>
             <Text style={styles.termsText}>{data.terms}</Text>
           </View>
         )}

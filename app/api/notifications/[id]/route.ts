@@ -6,10 +6,12 @@ import { prisma } from "@/lib/prisma";
 // Mark a single notification as read (only the recipient can).
 export async function PATCH(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: pendingParams }: { params: Promise<{ id: string }> },
 ) {
+  const params = await pendingParams;
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const result = await prisma.notification.updateMany({
     where: { id: params.id, recipientId: session.user.id },
@@ -17,7 +19,10 @@ export async function PATCH(
   });
 
   if (result.count === 0) {
-    return NextResponse.json({ error: "Notification not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Notification not found" },
+      { status: 404 },
+    );
   }
   return NextResponse.json({ ok: true });
 }
@@ -25,17 +30,22 @@ export async function PATCH(
 // Delete a notification from your own inbox.
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: pendingParams }: { params: Promise<{ id: string }> },
 ) {
+  const params = await pendingParams;
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const result = await prisma.notification.deleteMany({
     where: { id: params.id, recipientId: session.user.id },
   });
 
   if (result.count === 0) {
-    return NextResponse.json({ error: "Notification not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Notification not found" },
+      { status: 404 },
+    );
   }
   return NextResponse.json({ ok: true });
 }

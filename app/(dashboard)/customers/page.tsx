@@ -1,21 +1,21 @@
+import { positiveInteger } from "@/lib/query-input";
 import { prisma } from "@/lib/prisma";
 import { getCompanyScope, customerScopeWhere } from "@/lib/company-scope";
 import { Header } from "@/components/layout/Header";
 import { CustomerList } from "@/components/customers/CustomerList";
 
 export default async function CustomersPage({
-  searchParams,
+  searchParams: pendingSearchParams,
 }: {
-  searchParams: { search?: string; page?: string };
+  searchParams: Promise<{ search?: string; page?: string }>;
 }) {
+  const searchParams = await pendingSearchParams;
   const search = searchParams.search ?? "";
-  const page = parseInt(searchParams.page ?? "1");
+  const page = positiveInteger(searchParams.page, 1);
   const limit = 20;
   const skip = (page - 1) * limit;
 
   const { companyId } = await getCompanyScope();
-  // When a company is selected, narrow to customers that have done business
-  // with it. Customers are shared, so "All companies" shows everyone.
   const scope = customerScopeWhere(companyId);
   const hasScope = !!companyId;
 
@@ -51,25 +51,31 @@ export default async function CustomersPage({
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
 
-  const [customers, total, allCustomers, withQuotes, totalQuotes, newThisMonth] =
-    await Promise.all([
-      prisma.customer.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-        include: { _count: quotationCount },
-      }),
-      prisma.customer.count({ where }),
-      prisma.customer.count({ where: scopedActive }),
-      prisma.customer.count({
-        where: { isActive: true, quotations: someQuotation },
-      }),
-      prisma.quotation.count({ where: hasScope ? { companyId } : {} }),
-      prisma.customer.count({
-        where: { ...scopedActive, createdAt: { gte: startOfMonth } },
-      }),
-    ]);
+  const [
+    customers,
+    total,
+    allCustomers,
+    withQuotes,
+    totalQuotes,
+    newThisMonth,
+  ] = await Promise.all([
+    prisma.customer.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      include: { company: { select: { name: true } }, _count: quotationCount },
+    }),
+    prisma.customer.count({ where }),
+    prisma.customer.count({ where: scopedActive }),
+    prisma.customer.count({
+      where: { ...scopedActive, quotations: someQuotation },
+    }),
+    prisma.quotation.count({ where: hasScope ? { companyId } : {} }),
+    prisma.customer.count({
+      where: { ...scopedActive, createdAt: { gte: startOfMonth } },
+    }),
+  ]);
 
   return (
     <div className="flex flex-col flex-1">
