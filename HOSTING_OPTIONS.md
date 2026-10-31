@@ -1,3 +1,23 @@
+# Current launch status — 31 October 2026
+
+The owner requested publication and selected **sjsscrm.my**, to be registered
+through Exabytes. The different name requires a new domain purchase. The existing
+yldimanutd.my remains untouched. The owner authorized a US$0/month staging project
+in the Keshz Supabase organization; **SJSS CRM Staging** is created in Singapore
+(`egeyyqhlfulxmerexosd`), with the schema and two private Storage buckets prepared.
+No paid plans or domain purchases have been made by the agent. Vercel access,
+private credentials, live storage/migration tests, email DNS and hosted backups
+remain necessary. Publication is requested; the historical approval hold below
+has been superseded by that request. Git autodeploy remains off until ready.
+
+Follow **DEPLOYMENT_GUIDE.md**, which replaces the old setup sequence. Private
+cloud-upload code is now implemented; the historical “replace local uploads”
+requirement below describes the previous version. The implementation is not yet
+verified against live Storage. Current provider starting prices remain Vercel Pro
+US$20/month and Supabase Pro US$25/month, before taxes, usage and other costs.
+
+---
+
 # Hosting proposal — prices checked 17 October 2026
 
 This is a recommendation for review. No domain, subscription, hosted database or

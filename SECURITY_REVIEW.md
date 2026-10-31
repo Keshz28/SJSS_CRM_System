@@ -1,3 +1,38 @@
+# Launch preparation update — 31 October 2026
+
+Current status: hosted staging schema prepared; CRM is **not live**. See
+DEPLOYMENT_GUIDE.md for the current launch steps and remaining account work.
+
+- Singapore Supabase project `egeyyqhlfulxmerexosd`: seven Prisma migrations,
+  18 tables with RLS, no anon/authenticated/PUBLIC table grants, restricted
+  `crm_runtime` role (NOLOGIN until credentials are configured), and two private
+  50 MiB buckets. Supabase security advisor: no findings.
+- Cloud file adapter: authenticated signed staging uploads, 15-minute user/purpose/
+  metadata-bound finalization tickets, 60 upload preparations per user per 15
+  minutes, content/size validation, immutable permanent copies, and 5-minute
+  signed reads after a fresh CRM session check. Signed read URLs are bearer
+  capabilities valid until expiry; sign-out does not revoke an already issued URL.
+  Existing shared-CRM read access is preserved. No browser Storage policies.
+- Abandoned staging cleanup script is prepared; scheduling is pending. Live
+  Storage validation, hosted transfer, edge limits, email delivery and automated
+  offsite database AND file backup/restore tests are still pending credentials.
+- Zod upgraded to 4.6.7 for GHSA-mrhx-c7xc-m3w5. Production dependency audit:
+  zero findings. Full dependency tree still reports 19 moderate development/tool
+  findings; do not describe the whole dependency tree as vulnerability-free.
+- Encrypted local backup `.local/backups/2026-10-31T05-20-02-101Z-0a6ce547.sjss-backup`
+  restored successfully into an isolated temporary database: all 18 table counts
+  match and all three attachments pass authentication/hash checks.
+- Production build and typecheck passed. All 35 selected CRM regression tests
+  passed, including browser checks in installed Chrome. Eight focused storage, token, streaming,
+  monetary calculation, reporting and backup tests passed. Cloud Storage tests use
+  mocks; they are not a substitute for the pending real cloud smoke test.
+
+Historical review and earlier test results follow. Statements about deferred
+hosting or unfinished cloud-upload implementation below are historical; this
+update and DEPLOYMENT_GUIDE.md describe the current state.
+
+---
+
 # Pre-deployment review — updated 20 October 2026
 
 **Deployment decision: hold.** The code review found and addressed concrete

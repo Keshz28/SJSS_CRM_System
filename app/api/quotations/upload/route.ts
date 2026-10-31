@@ -1,9 +1,11 @@
-import { readForm } from "@/lib/request-body";
+import { readUploadForm } from "@/lib/upload-form";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { FileValidationError, removeUnreferencedFile, storeFile } from "@/lib/file-storage";
 import { createImportedQuotation, quotationImportFailure, quotationImportSchema } from "@/lib/quotation-import";
+
+export const maxDuration = 120;
 
 const ALLOWED_TYPES = [
   "application/pdf", "application/msword",
@@ -17,7 +19,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   let form: FormData;
-  try { form = await readForm(req, 11 * 1024 * 1024); }
+  try { form = await readUploadForm(req, session.user.id, "import"); }
   catch { return NextResponse.json({ error: "Choose a valid document upload." }, { status: 400 }); }
   const parsed = quotationImportSchema.safeParse(Object.fromEntries([
     "companyId", "companyName", "quotationNumber", "subject", "amount", "date", "status", "notes",

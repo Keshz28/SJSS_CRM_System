@@ -1,4 +1,6 @@
 "use client";
+
+import { uploadForm } from "@/lib/upload-client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -244,10 +246,7 @@ export function SiteVisitCapture({
           "file",
           new File([item.blob], item.name, { type: item.mimetype }),
         );
-        const response = await fetch("/api/uploads", {
-          method: "POST",
-          body: form,
-        });
+        const response = await uploadForm("/api/uploads", form);
         const data = await response.json();
         if (!response.ok)
           throw new Error(

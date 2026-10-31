@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { mkdir, readFile, stat, unlink, writeFile } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
+import { CLOUD_PREFIX, cloudKey, cloudStorageEnabled, storageBucket } from "./cloud-storage";
 
 export const MAX_UPLOAD_SIZE = 50 * 1024 * 1024;
 export class FileValidationError extends Error {}
@@ -33,6 +34,8 @@ const extensions: Record<string, string> = {
 const uploadRoot = path.resolve(
   process.env.UPLOAD_DIR || path.join(process.cwd(), ".local", "uploads"),
 );
+
+export function validUploadType(type: string) { return Object.hasOwn(extensions, type); }
 
 export function storedFilePath(key: string) {
   // Legacy files are still readable through the authenticated route during migration.
@@ -94,9 +97,16 @@ export async function readValidatedFile(file: File) {
 
 export async function storeFile(file: File) {
   const { bytes, mimetype, ext } = await readValidatedFile(file);
-  await mkdir(uploadRoot, { recursive: true, mode: 0o700 });
-  const filepath = `${randomUUID()}${ext}`;
-  await writeFile(storedFilePath(filepath), bytes, { flag: "wx", mode: 0o600 });
+  let filepath = `${randomUUID()}${ext}`;
+  if (cloudStorageEnabled()) {
+    const { error } = await storageBucket().upload(filepath, bytes, { contentType: mimetype, cacheControl: "0", upsert: false });
+    if (error) throw new Error("Could not store private file");
+    filepath = CLOUD_PREFIX + filepath;
+  } else {
+    if (process.env.VERCEL) throw new Error("Vercel requires private cloud storage");
+    await mkdir(uploadRoot, { recursive: true, mode: 0o700 });
+    await writeFile(storedFilePath(filepath), bytes, { flag: "wx", mode: 0o600 });
+  }
   return {
     filepath,
     filename: path.basename(file.name).slice(0, 200),
@@ -107,6 +117,11 @@ export async function storeFile(file: File) {
 
 export async function removeUnreferencedFile(filepath: string) {
   if (await prisma.attachment.count({ where: { filepath } })) return;
+  if (filepath.startsWith(CLOUD_PREFIX)) {
+    const { error } = await storageBucket().remove([cloudKey(filepath)]);
+    if (error) throw new Error("Could not remove private file");
+    return;
+  }
   try {
     await unlink(storedFilePath(filepath));
   } catch (error) {

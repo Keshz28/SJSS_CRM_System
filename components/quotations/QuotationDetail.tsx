@@ -1,5 +1,7 @@
 "use client";
 
+import { uploadForm } from "@/lib/upload-client";
+
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -170,7 +172,7 @@ export function QuotationDetail({
     const formData = new FormData();
     formData.append("file", file);
     formData.append("quotationId", quotation.id);
-    const res = await fetch("/api/uploads", { method: "POST", body: formData });
+    const res = await uploadForm("/api/uploads", formData);
     if (!res.ok) throw new Error("Could not upload this file. Check the file type and size, then try again.");
       const attachment = await res.json();
       setQuotation((prev) => ({

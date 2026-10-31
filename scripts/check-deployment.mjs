@@ -2,6 +2,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import path from "node:path";
+import { createClient } from "@supabase/supabase-js";
 try { process.loadEnvFile(".env"); } catch { /* Hosted environments inject variables. */ }
 const failures = [];
 const required = (condition, message) => { if (!condition) failures.push(message); };
@@ -12,7 +13,25 @@ required((process.env.NEXTAUTH_SECRET || "").length >= 32, "Set a long, random N
 required(process.env.RESEND_API_KEY && process.env.AUTH_EMAIL_FROM, "Configure administrator verification email delivery with RESEND_API_KEY and a verified AUTH_EMAIL_FROM sender.");
 const upload = process.env.UPLOAD_DIR;
 const publicRoot = path.resolve("public");
-required(upload && path.isAbsolute(upload) && path.resolve(upload) !== publicRoot && !path.resolve(upload).startsWith(publicRoot + path.sep), "Configure UPLOAD_DIR on durable private storage outside public/.");
+if (process.env.FILE_STORAGE === "supabase") {
+  required(process.env.SUPABASE_URL?.startsWith("https://") && process.env.SUPABASE_SECRET_KEY, "Configure private Supabase Storage credentials.");
+  required(process.env.SUPABASE_STORAGE_BUCKET && process.env.SUPABASE_UPLOAD_BUCKET && process.env.SUPABASE_STORAGE_BUCKET !== process.env.SUPABASE_UPLOAD_BUCKET, "Configure separate permanent and staging private buckets.");
+  try {
+    const storage = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, { auth: { persistSession: false, autoRefreshToken: false } }).storage;
+    for (const name of [process.env.SUPABASE_STORAGE_BUCKET, process.env.SUPABASE_UPLOAD_BUCKET]) {
+      const { data, error } = await storage.getBucket(name);
+      required(!error && data && !data.public && Number(data.file_size_limit) === 50 * 1024 * 1024, "Both Storage buckets must be private and enforce the 50 MB maximum.");
+    }
+  } catch { failures.push("Could not verify private Storage bucket settings."); }
+  try {
+    const database = new URL(process.env.DATABASE_URL);
+    required(database.searchParams.get("sslmode") === "require", "Require TLS on the hosted database connection.");
+    required(decodeURIComponent(database.username).split(".")[0] === "crm_runtime", "Use the restricted crm_runtime database login.");
+  } catch { failures.push("Configure a valid hosted database URL."); }
+} else {
+  required(!process.env.VERCEL, "Vercel deployments require FILE_STORAGE=supabase; local disk is not durable.");
+  required(upload && path.isAbsolute(upload) && path.resolve(upload) !== publicRoot && !path.resolve(upload).startsWith(publicRoot + path.sep), "Configure UPLOAD_DIR on durable private storage outside public/.");
+}
 const prisma = new PrismaClient();
 try {
   const users = await prisma.user.findMany({ where: { isActive: true }, select: { passwordHash: true, role: true, email: true } });
@@ -48,6 +67,7 @@ try {
   await prisma.loginBucket.count();
   await prisma.invoiceSequence.count();
   await prisma.emailLoginChallenge.count();
+  if (process.env.FILE_STORAGE === "supabase") required(await prisma.attachment.count({ where: { NOT: { filepath: { startsWith: "supabase/" } } } }) === 0, "Transfer and verify every local attachment before cloud launch.");
 } catch {
   failures.push("Database checks failed. Verify connectivity, permissions and applied migrations.");
 } finally { await prisma.$disconnect(); }

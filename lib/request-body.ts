@@ -1,6 +1,6 @@
 // Count actual streamed bytes as well as declared Content-Length. This prevents
 // chunked requests bypassing the early middleware size check.
-export async function readRequestBytes(request: Request, maximum: number) {
+export async function readRequestBytes(request: Request | Response, maximum: number) {
   if (Number(request.headers.get("content-length") || 0) > maximum) throw new Error("Body too large");
   const reader = request.body?.getReader();
   if (!reader) return new Uint8Array();

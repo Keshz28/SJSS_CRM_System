@@ -1,4 +1,4 @@
-import { readForm } from "@/lib/request-body";
+import { readUploadForm } from "@/lib/upload-form";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -6,6 +6,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import { FileValidationError, readValidatedFile } from "@/lib/file-storage";
 import { quotationImportSchema } from "@/lib/quotation-import";
+
+export const maxDuration = 120;
 
 const extractedSchema = z.object({
   quotationNumber: quotationImportSchema.shape.quotationNumber.nullish(),
@@ -30,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let formData: FormData;
-  try { formData = await readForm(req, 11 * 1024 * 1024); }
+  try { formData = await readUploadForm(req, session.user.id, "extract"); }
   catch { return NextResponse.json({ error: "Choose a valid document upload." }, { status: 400 }); }
   const file = formData.get("file");
   if (!(file instanceof File) || !file.size || file.size > 10 * 1024 * 1024)

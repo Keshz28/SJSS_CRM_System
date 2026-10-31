@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { stat, storedFilePath } from "@/lib/file-storage";
 import { createReadStream } from "fs";
 import { Readable } from "stream";
+import { CLOUD_PREFIX, signedDownload } from "@/lib/cloud-storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,15 @@ export async function GET(
   });
   if (!attachment)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (attachment.filepath.startsWith(CLOUD_PREFIX)) {
+    try {
+      const download = req.nextUrl.searchParams.has("download") || !/^(image|video|audio)\//.test(attachment.mimetype);
+      const url = await signedDownload(attachment.filepath, download ? attachment.filename : undefined);
+      return new NextResponse(null, { status: 307, headers: { Location: url, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
+    } catch {
+      return NextResponse.json({ error: "Private file storage is unavailable." }, { status: 503 });
+    }
+  }
   const filepath = storedFilePath(attachment.filepath);
   const file = await stat(filepath).catch(() => null);
   if (!file)

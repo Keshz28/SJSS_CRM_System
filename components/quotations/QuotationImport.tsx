@@ -1,5 +1,7 @@
 "use client";
 
+import { uploadForm } from "@/lib/upload-client";
+
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -98,7 +100,7 @@ export function QuotationImport({ companies, defaultCompanyId }: { companies: Co
     try {
       const fd = new FormData();
       fd.append("file", f);
-      const res = await fetch("/api/quotations/extract", { method: "POST", body: fd, signal: controller.signal });
+      const res = await uploadForm("/api/quotations/extract", fd, controller.signal);
       const data = await res.json();
       if (version !== extractionVersion.current) return;
 
@@ -185,7 +187,7 @@ export function QuotationImport({ companies, defaultCompanyId }: { companies: Co
       fd.append("status", status);
       fd.append("notes", notes.trim());
 
-      const res = await fetch("/api/quotations/upload", { method: "POST", body: fd });
+      const res = await uploadForm("/api/quotations/upload", fd);
       const data = await res.json();
 
       if (!res.ok) {

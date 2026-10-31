@@ -36,14 +36,20 @@ export function middleware(request: NextRequest) {
 
   const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
   const development = process.env.NODE_ENV === "development";
+  // Restrict cross-origin media and uploads to this project's storage origin.
+  let storageOrigin = "";
+  if (process.env.FILE_STORAGE === "supabase" && process.env.SUPABASE_URL) {
+    const storage = new URL(process.env.SUPABASE_URL);
+    if (storage.protocol === "https:") storageOrigin = ` ${storage.origin}`;
+  }
   const csp = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    `img-src 'self' data: blob:${storageOrigin}`,
     "font-src 'self' data:",
-    `connect-src 'self'${development ? " ws: wss:" : ""}`,
-    "media-src 'self' blob:",
+    `connect-src 'self'${storageOrigin}${development ? " ws: wss:" : ""}`,
+    `media-src 'self' blob:${storageOrigin}`,
     "worker-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",

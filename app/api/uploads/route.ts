@@ -1,4 +1,4 @@
-import { readForm } from "@/lib/request-body";
+import { readUploadForm } from "@/lib/upload-form";
 import { activeVisitWhere } from "@/lib/project-visibility";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -6,6 +6,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { FileValidationError, removeUnreferencedFile, storeFile } from "@/lib/file-storage";
 import { z } from "zod";
+
+export const maxDuration = 120;
 
 const metaSchema = z
   .object({
@@ -29,7 +31,9 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const form = await readForm(req);
+  let form: FormData;
+  try { form = await readUploadForm(req, session.user.id, "attachment"); }
+  catch { return NextResponse.json({ error: "The upload could not be verified. Please upload the file again." }, { status: 400 }); }
   const file = form.get("file");
   const parsed = metaSchema.safeParse({
     quotationId: form.get("quotationId") || null,
